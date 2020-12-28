@@ -1,0 +1,159 @@
+﻿using Common;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Order = Model.DB.Order;
+
+namespace RedisSrv
+{
+    public class OrderRA
+    {
+        public static List<Order> List4In()
+        {
+            List<Order> list = new List<Order>();
+            string[] keys = TradeRA.KeySearch("O_*");
+            foreach (string key in keys)
+            {
+                if (!key.EndsWith("_F") && !key.EndsWith("U_0"))
+                    list.Add(Get(key));
+            }
+            return list;
+        }
+
+        public static IEnumerable<Order> List4Failed(Model.Search.SearchOrderStatus model)
+        {
+            List<Order> list = new List<Order>();
+            string[] keys = TradeRA.KeySearch("O_*_F");
+            foreach (string key in keys)
+            {
+                list.Add(Get(key));
+            }
+            if (model.status == Model.Enum.OrderStatusEnum.Failed)
+                return list.Where(o => !string.IsNullOrEmpty(o.remark) && o.remark.Length > 0);
+            else
+                return list.Where(o => string.IsNullOrEmpty(o.remark));
+        }
+
+        public static List<Order> List4Unit(int unit_id)
+        {
+            List<Order> list = new List<Order>();
+            string[] keys = TradeRA.KeySearch("O_*_U_" + unit_id + "*");
+            foreach (string key in keys)
+            {
+                list.Add(Get(key));
+            }
+            return list;
+        }
+
+        public static List<Order> List4Trade(string trade_no)
+        {
+            List<Order> list = new List<Order>();
+            string[] keys = TradeRA.KeySearch("O_*_T_" + trade_no + "*");
+            foreach (string key in keys)
+            {
+                list.Add(Get(key));
+            }
+            return list;
+        }
+
+        public static Order Get(string key)
+        {
+            Dictionary<string, string> dic = TradeRA.GetFields(key);
+            if (dic.Count == 0)
+                return null;
+            else
+                return new Order()
+                {
+                    trade_no = dic["trade_no"],
+                    trade_count = (int)decimal.Parse(dic["trade_count"]),
+                    code = dic["code"],
+                    name = dic["name"],
+                    deal_count = (int)decimal.Parse(dic["deal_count"]),
+                    cancel_count = (int)decimal.Parse(dic["cancel_count"]),
+                    status = dic["status"],
+                    time_dt = DateTime.Parse(dic["time_dt"]),
+                    price = decimal.Parse(dic["price"]),
+                    count = (int)decimal.Parse(dic["count"]),
+                    type = int.Parse(dic["type"]),
+                    order_no = dic["order_no"],
+                    remark = dic["remark"],
+                    unit_id = int.Parse(dic["unit_id"]),
+                    unit_name = dic["unit_name"],
+                    user_id = int.Parse(dic["user_id"]),
+                    user_name = dic["user_name"],
+                    account_id = int.Parse(dic["account_id"]),
+                    account_name = dic["account_name"],
+                    deal_average_price = decimal.Parse(dic["deal_average_price"]),
+                    platform = int.Parse(dic["platform"])
+                };
+        }
+
+        public static void Add(Order order, string key)
+        {
+            Dictionary<string, string> items = new Dictionary<string, string>();
+            items.Add("trade_no", order.trade_no);
+            items.Add("trade_count", order.trade_count.ToString());
+            items.Add("code", order.code);
+            items.Add("name", order.name);
+            items.Add("price", order.price.ToString());
+            items.Add("count", order.count.ToString());
+            items.Add("type", order.type.ToString());
+            items.Add("unit_id", order.unit_id.ToString());
+            items.Add("unit_name", order.unit_name ?? UnitRA.GetName("U_" + order.unit_id));
+            items.Add("user_id", order.user_id.ToString());
+            items.Add("user_name", order.user_name ?? UserRA.Get(order.user_id.ToString(), "name"));
+            items.Add("platform", order.platform.ToString());
+            items.Add("deal_count", order.deal_count.ToString());
+            items.Add("deal_average_price", order.deal_average_price.ToString());
+            items.Add("cancel_count", "0");
+            items.Add("status", order.status ?? "");
+            items.Add("time_dt", order.time_dt.Format());
+            items.Add("account_id", order.account_id.ToString());
+            items.Add("account_name", order.account_name ?? AccountRA.GetName("A_" + order.account_id));
+            items.Add("order_no", order.order_no ?? "");
+            items.Add("remark", order.remark ?? "");
+            TradeRA.SetFields(key, items);
+            TradeRA.SetExpire(key);
+        }
+
+        public static void UpdateOrderSuccess(string key, int unit_id, string trade_no, string order_no)
+        {
+            string key_new = "O_" + order_no + "_T_" + trade_no + "_U_" + unit_id;
+            TradeRA.KeyRename(key, key_new);
+            TradeRA.Set(key_new, "order_no", order_no);
+        }
+
+        public static void UpdateOrderFailed(string key, string remark)
+        {
+            if (string.IsNullOrWhiteSpace(remark))
+                return;
+
+            TradeRA.Set(key, "remark", remark);
+        }
+
+        public static void UpdateNew(Order order, string key)
+        {
+            Dictionary<string, string> items = new Dictionary<string, string>();
+            items.Add("name", order.name);
+            items.Add("deal_count", order.deal_count.ToString());
+            items.Add("cancel_count", order.cancel_count.ToString());
+            items.Add("status", order.status);
+            items.Add("time_dt", order.time_dt.Format());
+            TradeRA.SetFields(key, items);
+        }
+
+        public static void UpdateStatus(Order order, string key)
+        {
+            Dictionary<string, string> items = new Dictionary<string, string>();
+            items.Add("deal_count", order.deal_count.ToString());
+            items.Add("cancel_count", order.cancel_count.ToString());
+            items.Add("status", order.status);
+            TradeRA.SetFields(key, items);
+        }
+
+        public static void UpdateAverageOrice(decimal deal_average_price, string key)
+        {
+            TradeRA.Set(key, "deal_average_price", deal_average_price.ToString("#0.000"));
+        }
+    }
+}

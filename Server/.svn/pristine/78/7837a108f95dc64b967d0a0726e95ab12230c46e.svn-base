@@ -1,0 +1,25 @@
+﻿using Model.Enum;
+using System;
+using System.Runtime.Serialization;
+
+namespace Model.API
+{
+    [DataContract]
+    public class Order
+    {
+        [DataMember]
+        public int unit_id { get; set; }
+
+        [DataMember]
+        public string code { get; set; }
+
+        [DataMember]
+        public OrderTypeEnum type { get; set; }
+
+        [DataMember]
+        public decimal price { get; set; }
+
+        [DataMember]
+        public int count { get; set; }
+    }
+}

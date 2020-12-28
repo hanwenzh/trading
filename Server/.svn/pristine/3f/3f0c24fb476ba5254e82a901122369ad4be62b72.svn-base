@@ -1,0 +1,25 @@
+﻿using Model.API;
+using Model.Enum;
+using Model.Return;
+using System;
+using System.ServiceModel;
+using System.ServiceModel.Web;
+
+namespace Trade.Interface
+{
+    [ServiceContract]
+    public interface ISystem
+    {
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        ResultLogTrade ListLogTrade();
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        Result UpdateStatusTrade(StatusTradeEnum status);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        Result PositionTransfer(PositionTransfer model);
+    }
+}

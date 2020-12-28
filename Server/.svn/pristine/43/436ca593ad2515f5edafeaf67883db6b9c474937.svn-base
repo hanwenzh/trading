@@ -1,0 +1,82 @@
+﻿using Model.Return;
+using Model.Enum;
+using MySQLSrv;
+using Trade.Interface;
+using RedisSrv;
+using System.ServiceModel.Activation;
+using Common;
+using System.Collections.Generic;
+using System.Configuration;
+using Trade.Biz;
+using System.Linq;
+using Version = Model.DB.Version;
+using System;
+
+namespace Trade.Service
+{
+    [AspNetCompatibilityRequirements(RequirementsMode = AspNetCompatibilityRequirementsMode.Allowed)]
+    public class Utility : Service, IUtility
+    {
+        public ResultLogin Login(Model.DB.User model)
+        {
+            ApiResultEnum result = UserDA.Login(ref model, platform);
+            if (result == ApiResultEnum.Success)
+            {
+                string user_token = UserRA.Get(model.id.ToString(), "platform_" + platform);
+                if (string.IsNullOrWhiteSpace(user_token))
+                {
+                    user_token = FuncHelper.GetUniqueString();
+                    Dictionary<string, string> dic = new Dictionary<string, string>();
+                    dic.Add("platform_" + platform, user_token);
+                    dic.Add("name", model.name);
+                    dic.Add("status_order", model.status_order.ToString());
+                    dic.Add("role", model.role.ToString());
+                    dic.Add("login_time_" + platform, DateTime.Now.Format());
+                    UserRA.Set(model.id.ToString(), dic);
+                    UserRA.SetExpire(model.id.ToString());
+                }
+                return new ResultLogin(result, model, model.id + "-" + user_token);
+            }
+            else
+            {
+                return new ResultLogin(result, null, null);
+            }
+        }
+
+        public ResultVersion Version(int current_version)
+        {
+            Version version = new Version()
+            {
+                version = Config.client_version,
+                version_no = Config.client_version_no
+            };
+            if (current_version >= Config.client_version)
+                return new ResultVersion(ApiResultEnum.LatestVersion, version);
+
+            version.files = ClientFileDA.List(current_version);
+            version.total_file_count = version.files.Count;
+            version.total_size = version.files.Sum(f => f.size);
+            return new ResultVersion(ApiResultEnum.Success, version);
+        }
+
+        public Result Close(string token)
+        {
+            if (token != ConfigurationManager.AppSettings["CloseToken"])
+                return Result(ApiResultEnum.InvalidRequest);
+
+            UserRA.FlushDatabase(new List<int>() { 8, (int)DateTime.Now.AddDays(1).DayOfWeek });
+            int status_trade = TradeRA.GetStatusTrade();
+            if (status_trade != 0)
+            {
+                if (LogTradeDA.Close("系统"))
+                {
+                    TradeRA.SetStatusTrade((int)StatusTradeEnum.Closed);
+                    OpenCloseBiz.Close();
+                    NLog.Info("系统自动收盘");
+                    return Result(ApiResultEnum.Success);
+                }
+            }
+            return Result(ApiResultEnum.Order_Closed);
+        }
+    }
+}

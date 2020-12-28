@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<packages>
+  <package id="Microsoft.AspNet.SignalR.Core" version="2.4.1" targetFramework="net472" />
+  <package id="Microsoft.AspNet.SignalR.Core.zh-Hans" version="2.4.1" targetFramework="net472" />
+  <package id="Microsoft.AspNet.SignalR.SystemWeb" version="2.4.1" targetFramework="net472" />
+  <package id="Microsoft.AspNet.SignalR.SystemWeb.zh-Hans" version="2.4.1" targetFramework="net472" />
+  <package id="Microsoft.Owin" version="4.1.1" targetFramework="net472" />
+  <package id="Microsoft.Owin.Host.HttpListener" version="4.1.1" targetFramework="net472" />
+  <package id="Microsoft.Owin.Host.SystemWeb" version="2.1.0" targetFramework="net472" />
+  <package id="Microsoft.Owin.Hosting" version="4.1.1" targetFramework="net472" />
+  <package id="Microsoft.Owin.Security" version="2.1.0" targetFramework="net472" />
+  <package id="NLog" version="4.7.5" targetFramework="net472" />
+  <package id="NPOI" version="2.5.1" targetFramework="net472" />
+  <package id="Owin" version="1.0" targetFramework="net472" />
+  <package id="Portable.BouncyCastle" version="1.8.6" targetFramework="net472" />
+  <package id="SharpZipLib" version="1.2.0" targetFramework="net472" />
+</packages>

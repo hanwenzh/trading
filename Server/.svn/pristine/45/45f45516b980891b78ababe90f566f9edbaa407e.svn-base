@@ -1,0 +1,135 @@
+﻿using AutoUpgrade.DB;
+using AutoUpgrade.Model;
+using System;
+using System.Collections.Generic;
+using System.Configuration;
+using System.Drawing;
+using System.IO;
+using System.Linq;
+using System.Windows.Forms;
+
+namespace AutoUpgrade
+{
+    public partial class FrmMain : Form
+    {
+        List<ClientFileCompare> files_upgrade;
+
+        public FrmMain()
+        {
+            InitializeComponent();
+            dgvFiles.AutoGenerateColumns = false;
+
+            Dictionary<string, string> dic = ConfigDA.List();
+            txt_version_no_old.Text = dic["client_version_no"];
+            txt_version_old.Text = dic["client_version"];
+            txt_version_new.Text = DateTime.Now.ToString("yyyyMMdd") + "01";
+
+            string dir = ConfigurationManager.AppSettings["ClientDir"];
+            List <ClientFile> files_old = ClientFileDA.List();
+            List<ClientFile> files_new = new List<ClientFile>();
+            GetDirectorFiles(dir, ref files_new);
+
+            List<ClientFileCompare> files_compare = files_old.Select(f => new ClientFileCompare()
+            {
+                name = f.name,
+                size = f.size,
+                time = f.time,
+                version = f.version
+            }).ToList();
+            foreach (ClientFile fn in files_new)
+            {
+                fn.name = fn.name.Substring(dir.Length).Replace('\\', '/');
+
+                ClientFileCompare fc = files_compare.Find(f => f.name == fn.name);
+                if (fc == null)
+                {
+                    files_compare.Add(new ClientFileCompare()
+                    {
+                        name = fn.name,
+                        size_new = fn.size,
+                        time_new = fn.time,
+                        need_upgrade = "是"
+                    });
+                }
+                else
+                {
+                    fc.size_new = fn.size;
+                    fc.time_new = fn.time;
+                    fc.need_upgrade = fc.time != fc.time_new ? "是" : "否";
+                }
+            }
+            dgvFiles.DataSource = files_compare.OrderByDescending(f => f.need_upgrade).ToList();
+            files_upgrade = files_compare.Where(f => f.time != f.time_new).ToList();
+            btnSave.Text += "\r\n（可发布" + files_upgrade.Count + "个文件）";
+        }
+
+        private void btnSave_Click(object sender, EventArgs e)
+        {
+            if (files_upgrade.Count == 0)
+            {
+                MessageBox.Show("没有可发布的文件", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            if (string.IsNullOrEmpty(txt_version_new.Text) || string.IsNullOrEmpty(txt_version_no_new.Text))
+            {
+                MessageBox.Show("新版本与新版本号不允许为空", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            if (txt_version_new.Text == txt_version_old.Text || txt_version_no_new.Text == txt_version_no_old.Text)
+            {
+                MessageBox.Show("新旧版本与版本号不允许相同", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            
+            if (ClientFileDA.Add(files_upgrade, txt_version_new.Text))
+            {
+                ConfigDA.Update(txt_version_new.Text, txt_version_no_new.Text);
+                MessageBox.Show("保存成功！共更新" + files_upgrade.Count + "个文件。", "提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                Close();
+            }
+        }
+
+        public static void GetDirectorFiles(string dir, ref List<ClientFile> list)
+        {
+            //绑定到指定的文件夹目录
+            DirectoryInfo di = new DirectoryInfo(dir);
+            //检索表示当前目录的文件和子目录
+            FileSystemInfo[] fsinfos = di.GetFileSystemInfos();
+            //遍历检索的文件和子目录
+            foreach (FileSystemInfo fsinfo in fsinfos)
+            {
+                //判断是否为空文件夹　　
+                if (fsinfo is DirectoryInfo)
+                {
+                    //递归调用
+                    GetDirectorFiles(fsinfo.FullName, ref list);
+                }
+                else
+                {
+                    //将得到的文件全路径放入到集合中
+                    list.Add(new ClientFile()
+                    {
+                        name = fsinfo.FullName,
+                        size = new FileInfo(fsinfo.FullName).Length.ToString(),
+                        time = fsinfo.LastWriteTime.ToString("yyyy/MM/dd HH:mm:ss")
+                    });
+                }
+            }
+        }
+
+        private void dgvFiles_RowPostPaint(object sender, DataGridViewRowPostPaintEventArgs e)
+        {
+            //自动编号，与数据无关
+            Rectangle rectangle = new Rectangle(e.RowBounds.Location.X,
+               e.RowBounds.Location.Y,
+               dgvFiles.RowHeadersWidth - 4,
+               e.RowBounds.Height);
+            TextRenderer.DrawText(e.Graphics,
+                  (e.RowIndex + 1).ToString(),
+                   dgvFiles.RowHeadersDefaultCellStyle.Font,
+                   rectangle,
+                   dgvFiles.RowHeadersDefaultCellStyle.ForeColor,
+                   TextFormatFlags.VerticalCenter | TextFormatFlags.Right);
+        }
+    }
+}

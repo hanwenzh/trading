@@ -1,0 +1,109 @@
+﻿using Model.Return;
+using Model.Enum;
+using Model.DB;
+using MySQLSrv;
+using Trade.Interface;
+using System;
+using System.Collections.Generic;
+using System.ServiceModel.Activation;
+using Model.API;
+using RedisSrv;
+using System.Linq;
+using Model.Search;
+
+namespace Trade.Service
+{
+    [AspNetCompatibilityRequirements(RequirementsMode = AspNetCompatibilityRequirementsMode.Allowed)]
+    public class System : Service, ISystem
+    {
+        public ResultLogTrade ListLogTrade()
+        {
+            List<LogTrade> lst = LogTradeDA.List();
+            int status_trade = TradeRA.GetInt("status_trade");
+            if (status_trade == 1)
+                lst.Last().state = "交易中";
+            else if (status_trade == 2)
+                lst.Last().state = "已暂停";
+            return new ResultLogTrade(lst);
+        }
+
+        public Result UpdateStatusTrade(StatusTradeEnum status)
+        {
+            int status_trade = TradeRA.GetInt("status_trade");
+            if (status_trade == 0)
+            {
+                if (status != StatusTradeEnum.Opening)
+                    return Result(ApiResultEnum.Failed);
+
+                //开盘
+                if (!LogTradeDA.Open(UserRA.Get(user_id, "name")))
+                    return Result(ApiResultEnum.Failed);
+                TradeRA.SetInt("status_trade", (int)status);
+            }
+            else
+            {
+                if (status == StatusTradeEnum.Opening)
+                    return Result(ApiResultEnum.Failed);
+                else if (status == StatusTradeEnum.Recovery)
+                    TradeRA.SetInt("status_trade", (int)StatusTradeEnum.Opening);
+                else if (status == StatusTradeEnum.Pause)
+                    TradeRA.SetInt("status_trade", (int)status);
+                else
+                {
+                    //收盘
+                    if (!LogTradeDA.Close(UserRA.Get(user_id, "name")))
+                        return Result(ApiResultEnum.Failed);
+                    TradeRA.SetInt("status_trade", (int)status);
+                }
+            }
+            return Result(ApiResultEnum.Success);
+        }
+
+        public ResultAccountPosition ListAccountPosition(int account_id)
+        {
+            List<AccountPosition> lst = new List<AccountPosition>();
+            lst.Add(new AccountPosition()
+            {
+                account_name = "天风1026普通",
+                code = "000001",
+                name = "平安银行",
+                count = 0,
+                count_in = 18000
+            });
+            return new ResultAccountPosition(lst);
+        }
+
+        public Result PositionTransfer(PositionTransfer model)
+        {
+            return Result(ApiResultEnum.Success);
+        }
+
+        public ResultOrder ListOrder(Search model)
+        {
+            List<Order> lst = OrderDA.List(model);
+            return new ResultOrder(lst);
+        }
+
+        public ResultDeal ListDeal(Search model)
+        {
+            List<Deal> lst = DealDA.List(model);
+            return new ResultDeal(lst);
+        }
+
+        public ResultPosition ListPosition()
+        {
+            List<Position> lst = new List<Position>();
+            lst.Add(new Position()
+            {
+                code = "000001",
+                name = "平安银行",
+                count = 1000,
+                count_sellable = 1000,
+                price_cost = 12,
+                account_name = "平安0036普通",
+                unit_name = "823"
+            });
+            return new ResultPosition(lst);
+        }
+    }
+}

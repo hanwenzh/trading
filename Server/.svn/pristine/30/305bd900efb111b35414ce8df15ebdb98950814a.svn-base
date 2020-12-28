@@ -1,0 +1,79 @@
+﻿using Model.Return;
+using System;
+using System.ServiceModel;
+using System.ServiceModel.Web;
+using Model.Search;
+using Model.API;
+using Model.Common;
+using Model.DB;
+
+namespace Trade.Interface
+{
+    [ServiceContract]
+    public interface ITrade
+    {
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        ResultLogCapital ListLogCapital(SearchCapitalLog model);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        ResultOrder ListOrder(SearchUnit model);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        ResultOrder ListOrderCancellable(int unit_id);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        ResultOrder ListSubOrder(string trade_no);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        ResultDeal ListDeal(SearchUnit model);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        ResultPosition ListPosition(int unit_id);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        ResultPosition ListSubPosition(Position model);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        ResultUnitCapital GetUnitCapital(int unit_id);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        Result Order(Order model);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        Result OrderLimit(Order model);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        Result Cancel(Cancel model);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        ResultLong OrderAutoAdd(OrderAutoAdd model);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        Result OrderAutoUpdate(OrderAutoUpdate model);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        ResultOrderAuto ListOrderAuto(int unit_id);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        Result OrderAutoDelete(OrderAutoUpdate model);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        Result OrderAutoUpdateStatus(Status model);
+    }
+}

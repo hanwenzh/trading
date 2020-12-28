@@ -1,0 +1,210 @@
+﻿using Common;
+using Model.DB;
+using NetMQ;
+using NetMQ.Sockets;
+using System;
+using System.Collections.Generic;
+using System.Text;
+using UnitCapital = Model.API.UnitCapital;
+
+namespace JY
+{
+    public class JYService
+    {
+        private RequestSocket client;
+
+        public JYService(string ip, int port)
+        {
+            try
+            {
+                client = new RequestSocket();
+                client.Connect(string.Format("tcp://{0}:{1}", ip, port));
+            }
+            catch(Exception ex)
+            {
+                NLog.Error(ip + "交易服务器连接失败", ex);
+            }
+        }
+
+        public string Order(Model.API.Order model, out string order_no)
+        {
+            order_no = null;
+            try
+            {
+                string cmd = string.Format("9001|{0},{1},{2},{3}", model.code, (int)model.type, model.count, model.price);
+                client.SendFrame(Encoding.UTF8.GetBytes(cmd));
+                var response = client.ReceiveFrameString(Encoding.UTF8);
+                if (response.StartsWith("90001|"))
+                {
+                    string[] datas = response.Substring(6).TrimEnd('|').Split(',');
+                    if (datas[0] == "0")
+                    {
+                        order_no = datas[1];
+                        return null;
+                    }
+                    else
+                    {
+                        return datas[1];
+                    }
+                }
+            }
+            catch(Exception ex)
+            {
+                NLog.Error("下单异常", ex);
+            }
+            return "通信异常";
+        }
+
+        public void Cancel(string order_no)
+        {
+            try
+            {
+                string cmd = string.Format("9002|{0}",  order_no);
+                client.SendFrame(Encoding.UTF8.GetBytes(cmd));
+            }
+            catch (Exception ex)
+            {
+                NLog.Error("撤单异常", ex);
+            }
+        }
+
+        public UnitCapital QueryCapital()
+        {
+            try
+            {
+                string cmd = "9003|";
+                client.SendFrame(Encoding.UTF8.GetBytes(cmd));
+                var response = client.ReceiveFrameString(Encoding.UTF8);
+                if (response.StartsWith("90003|"))
+                {
+                    string[] datas = response.Substring(6).TrimEnd('|').Split(',');
+                    return new UnitCapital()
+                    {
+                        available = decimal.Parse(datas[0]),
+                        value = decimal.Parse(datas[1]),
+                        profit = decimal.Parse(datas[2]),
+                        assets = decimal.Parse(datas[3]),
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                NLog.Error("查询资金异常", ex);
+            }
+            return null;
+        }
+
+        public List<Order> QueryOrder()
+        {
+            List<Order> list = new List<Order>();
+            try
+            {
+                string cmd = "9004|";
+                client.SendFrame(Encoding.UTF8.GetBytes(cmd));
+                var response = client.ReceiveFrameString(Encoding.UTF8);
+                if (response.StartsWith("90004|"))
+                {
+                    string[] datas = response.Substring(6).TrimEnd('|').Split('\n');
+                    if (datas.Length > 0)
+                    {
+                        foreach (string data in datas)
+                        {
+                            string[] items = data.Split(',');
+                            list.Add(new Order()
+                            {
+                                code = items[0],
+                                name = items[1],
+                                type = int.Parse(items[2]),
+                                price = decimal.Parse(items[3]),
+                                count = (int)decimal.Parse(items[4]),
+                                deal_count = (int)decimal.Parse(items[5]),
+                                cancel_count = (int)decimal.Parse(items[7]),
+                                status = items[8],
+                                time = items[10],
+                                order_no = items[11]
+                            });
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                NLog.Error("查询委托异常", ex);
+            }
+            return list;
+        }
+
+        public List<Deal> QueryDeal()
+        {
+            List<Deal> list = new List<Deal>();
+            try
+            {
+                string cmd = "9005|";
+                client.SendFrame(Encoding.UTF8.GetBytes(cmd));
+                var response = client.ReceiveFrameString(Encoding.UTF8);
+                if (response.StartsWith("90005|"))
+                {
+                    string[] datas = response.Substring(6).TrimEnd('|').Split('\n');
+                    if (datas.Length > 0)
+                    {
+                        foreach (string data in datas)
+                        {
+                            string[] items = data.Split(',');
+                            list.Add(new Deal()
+                            {
+                                code = items[0],
+                                name = items[1],
+                                type = int.Parse(items[2]),
+                                price = decimal.Parse(items[5]),
+                                count = (int)decimal.Parse(items[6]),
+                                money = decimal.Parse(items[7]),
+                                time = items[9],
+                                deal_no = items[10],
+                                order_no = items[11]
+                            });
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                NLog.Error("查询成交异常", ex);
+            }
+            return list;
+        }
+
+        public List<Position> QueryPosition()
+        {
+            List<Position> list = new List<Position>();
+            try
+            {
+                string cmd = "9006|";
+                client.SendFrame(Encoding.UTF8.GetBytes(cmd));
+                var response = client.ReceiveFrameString(Encoding.UTF8);
+                if (response.StartsWith("90006|"))
+                {
+                    string[] datas = response.Substring(6).TrimEnd('|').Split('\n');
+                    if (datas.Length > 0)
+                    {
+                        foreach (string data in datas)
+                        {
+                            string[] items = data.Split(',');
+                            list.Add(new Position()
+                            {
+                                code = items[0],
+                                name = items[1],
+                                count = (int)decimal.Parse(items[2]),
+                                count_sellable = (int)decimal.Parse(items[3])
+                            });
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                NLog.Error("查询持仓异常", ex);
+            }
+            return list;
+        }
+    }
+}

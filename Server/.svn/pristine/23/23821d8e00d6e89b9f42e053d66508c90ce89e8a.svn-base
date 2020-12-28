@@ -1,0 +1,18 @@
+﻿using Model.DB;
+using System;
+using System.Runtime.Serialization;
+
+namespace Model.Return
+{
+    [DataContract]
+    public class ResultUnitStatement : Base
+    {
+        [DataMember]
+        public Statement Data { get; set; }
+
+        public ResultUnitStatement(Statement data)
+        {
+            Data = data;
+        }
+    }
+}

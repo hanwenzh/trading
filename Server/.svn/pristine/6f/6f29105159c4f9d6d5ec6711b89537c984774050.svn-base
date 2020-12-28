@@ -1,0 +1,62 @@
+﻿using Model.Return;
+using Model.Enum;
+using Model.DB;
+using MySQLSrv;
+using Trade.Interface;
+using System;
+using System.Collections.Generic;
+using System.ServiceModel.Activation;
+using Model.Search;
+using Model.API;
+
+namespace Trade.Service
+{
+    [AspNetCompatibilityRequirements(RequirementsMode = AspNetCompatibilityRequirementsMode.Allowed)]
+    public class Query : Service, IQuery
+    {
+        public ResultLogCapital ListLogCapital(SearchCapitalLog model)
+        {
+            List<LogCapital> lst = LogCapitalDA.List(model);
+            return new ResultLogCapital(lst);
+        }
+
+        public ResultOrder ListOrder(SearchUnit model)
+        {
+            List<Order> lst = OrderDA.List(model);
+            return new ResultOrder(lst);
+        }
+
+        public ResultDeal ListDeal(SearchUnit model)
+        {
+            List<Deal> lst = DealDA.List(model);
+            return new ResultDeal(lst);
+        }
+
+        public ResultPosition ListPosition(int unit_id)
+        {
+            List<Position> lst = new List<Position>();
+            lst.Add(new Position()
+            {
+                code = "000001",
+                name = "平安银行",
+                count = 1000,
+                count_sellable = 1000,
+                price_cost = 12,
+                account_name = "平安0036普通",
+                unit_name = "823"
+            });
+            return new ResultPosition(lst);
+        }
+
+        public ResultUnitCapital UnitCapital(int unit_id)
+        {
+            UnitCapital unitCapital = new UnitCapital()
+            {
+                available = 1000000,
+                scale = 1000000,
+                balance = 1000000
+            };
+            return new ResultUnitCapital(unitCapital);
+        }
+    }
+}

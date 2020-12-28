@@ -1,0 +1,469 @@
+﻿using Common;
+using HQ;
+using Model.API;
+using Model.DB;
+using Model.Enum;
+using Model.Return;
+using RedisSrv;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+
+namespace Trade.Biz
+{
+    public class TradeBiz
+    {
+        private static Dictionary<int, JYBiz> jybizs = new Dictionary<int, JYBiz>();
+        private static bool run = false;
+
+        public static void Start()
+        {
+            if (!run)
+            {
+                run = true;
+                Thread thread = new Thread(Run);
+                thread.IsBackground = true;
+                thread.Start();
+            }
+        }
+
+        public static void Stop()
+        {
+            run = false;
+            foreach (var kvp in TradeBiz.jybizs)
+            {
+                kvp.Value.Dispose();
+            }
+        }
+
+        public static void LoadAccount(Account account)
+        {
+            if (!jybizs.ContainsKey(account.id))
+            {
+                jybizs.Add(account.id, new JYBiz(account.id, account.server_ip, account.server_port));
+            }
+            else
+            {
+                jybizs[account.id].Dispose();
+                jybizs[account.id] = new JYBiz(account.id, account.server_ip, account.server_port);
+            }
+        }
+
+        private static void Run()
+        {
+            int counter = 0;
+            while (run)
+            {
+                RunOrderAuto();
+                counter++;
+                if (counter > 2)
+                {
+                    RunCalculateValue();
+                    counter = 0;
+                }
+                Thread.Sleep(1000);
+            }
+        }
+
+        public static void RunOrderAuto()
+        {
+            List<OrderAuto> orders = OrderAutoRA.List4Undone();
+            foreach (OrderAuto orderAuto in orders)
+            {
+                if (orderAuto.status_enum == StatusEnum.Forbidden)
+                    continue;
+                if (orderAuto.time_next_dt > DateTime.Now)
+                    continue;
+                Random random = new Random();
+
+                Order order = new Order()
+                {
+                    code = orderAuto.code,
+                    type = orderAuto.type,
+                    unit_id = orderAuto.unit_id,
+                    account_id = orderAuto.account_id,
+                    user_id = orderAuto.user_id,
+                    platform = orderAuto.platform
+                };
+                order.count = orderAuto.count_total - orderAuto.order_count;
+                orderAuto.time_next_dt = DateTime.MinValue;
+                if (order.count > orderAuto.count_max)
+                {
+                    order.count = random.Next(orderAuto.count_min / 100, orderAuto.count_max / 100) * 100;
+                    orderAuto.time_next_dt = DateTime.Now.AddSeconds(random.Next(orderAuto.time_min, orderAuto.time_max));
+                }
+                order.price = GetPriceByPriceType(orderAuto.code, orderAuto.price_type_enum);
+                if (order.price < orderAuto.price_min)
+                    order.price = orderAuto.price_min;
+                else if (order.price > orderAuto.price_max)
+                    order.price = orderAuto.price_max;
+
+                ApiResultEnum result = ApiResultEnum.Success;
+                int order_count = Order(order);
+                if (order_count == 0)
+                    result = order.type_enum == OrderTypeEnum.Buy ? ApiResultEnum.Order_Account_Negative_Amount : ApiResultEnum.Order_Account_Negative_Position;
+                if (order_count < order.count)
+                    result = ApiResultEnum.Success_Portion;
+
+                orderAuto.result_prev = new Base(result).Message;
+                orderAuto.order_times++;
+                orderAuto.order_count += order.count;
+                orderAuto.time_prev_dt = DateTime.Now;
+                OrderAutoRA.UpdateExecuted(orderAuto, "S_" + orderAuto.id + "_U_" + orderAuto.unit_id + "_D_0");
+            }
+        }
+
+        public static void OrderMerge(ref IEnumerable<Order> lst)
+        {
+            lst = lst.GroupBy(o => new { o.trade_no, o.code, o.name, o.price, o.type, o.unit_id, o.platform, o.user_id }).Select(x =>
+            {
+                int count = x.Sum(i => i.count);
+                return new Order()
+                {
+                    trade_no = x.Key.trade_no,
+                    code = x.Key.code,
+                    name = x.Key.name,
+                    price = x.Key.price,
+                    type = x.Key.type,
+                    unit_id = x.Key.unit_id,
+                    platform = x.Key.platform,
+                    user_id = x.Key.user_id,
+                    count = count,
+                    deal_count = x.Sum(i => i.deal_count),
+                    cancel_count = x.Sum(i => i.cancel_count),
+                    deal_average_price = count == 0 ? 0 : x.Sum(i => i.count * i.deal_average_price) / count,
+                    time_dt = x.Min(i => i.time_dt)
+                };
+            });
+            foreach (Order order in lst)
+            {
+                if (order.deal_count == order.count)
+                    order.status = "已成";
+                else if (order.cancel_count == order.count)
+                    order.status = "已撤";
+                else if (order.cancel_count == 0 && order.deal_count == 0)
+                    order.status = "已报";
+                else if (order.cancel_count > 0)
+                    order.status = "部分已撤";
+                else if (order.deal_count > 0)
+                    order.status = "部分已成";
+            }
+            lst = lst.OrderBy(o => o.time_dt);
+        }
+
+        private static decimal GetPriceByPriceType(string code, OrderPriceEnum priceEnum)
+        {
+            HQItem hq = HQService.Get(code);
+            switch (priceEnum)
+            {
+                case OrderPriceEnum.Latest:
+                    return hq.Last;
+                case OrderPriceEnum.Buy1:
+                    return hq.Buy_1;
+                case OrderPriceEnum.Buy2:
+                    return hq.Buy_2;
+                case OrderPriceEnum.Buy3:
+                    return hq.Buy_3;
+                case OrderPriceEnum.Buy4:
+                    return hq.Buy_4;
+                case OrderPriceEnum.Buy5:
+                    return hq.Buy_5;
+                case OrderPriceEnum.Sell1:
+                    return hq.Sell_1;
+                case OrderPriceEnum.Sell2:
+                    return hq.Sell_2;
+                case OrderPriceEnum.Sell3:
+                    return hq.Sell_3;
+                case OrderPriceEnum.Sell4:
+                    return hq.Sell_4;
+                case OrderPriceEnum.Sell5:
+                    return hq.Sell_5;
+            }
+            return 0;
+        }
+
+        public static void RunCalculateValue()
+        {
+            //单元的市值
+            Dictionary<int, decimal[]> dic_unit = new Dictionary<int, decimal[]>();
+            //单元下主账户的市值
+            Dictionary<string, decimal> dic_account = new Dictionary<string, decimal>();
+            string[] keys = TradeRA.KeySearch("P_*");
+            foreach (string key in keys)
+            {
+                Position position = PositionRA.Get(key);
+                HQItem hq = HQService.Get(position.code);
+                decimal price = hq == null ? position.price_latest : hq.Last;
+                decimal value = price * position.count;
+                decimal profit = (price - position.price_cost) * position.count;
+                if (dic_unit.ContainsKey(position.unit_id))
+                {
+                    dic_unit[position.unit_id][position.block] = dic_unit[position.unit_id][position.block] + value;
+                    dic_unit[position.unit_id][4] = dic_unit[position.unit_id][4] + value;
+                    dic_unit[position.unit_id][5] = dic_unit[position.unit_id][5] + profit;
+                }
+                else
+                {
+                    decimal[] values = new decimal[6] { 0, 0, 0, 0, value, profit };
+                    values[position.block] = value;
+                    dic_unit.Add(position.unit_id, values);
+                }
+                string au = "A_" + position.account_id + "_U_" + position.unit_id;
+                if (dic_account.ContainsKey(au))
+                {
+                    dic_account[au] += value;
+                }
+                else
+                {
+                    dic_account.Add(au, value);
+                }
+            }
+            foreach (var kvp in dic_unit)
+            {
+                UnitRA.UpdateCapitalStockValue(kvp.Value, "U_" + kvp.Key);
+            }
+            foreach (var kvp in dic_account)
+            {
+                AccountGroupRA.UpdateCapitalStockValue(kvp.Key, kvp.Value);
+            }
+        }
+
+        public static int Order(Order order)
+        {
+            int order_count = 0;
+            ApiResultEnum result = CheckStatus(order);
+            if (result == ApiResultEnum.Success)
+                result = CheckUnit(order);
+            if (result == ApiResultEnum.Success)
+            {
+                Dictionary<int, int> order_items;
+                if (order.account_id == 0)
+                    order_items = GetOrderAccount(order);
+                else
+                    order_items = new Dictionary<int, int>() { { order.account_id, order.count } };
+
+                order.trade_no = FuncHelper.GetUniqueID().ToString();
+                foreach (var kvp in order_items)
+                {
+                    if (kvp.Value == 0)
+                        continue;
+
+                    order.account_id = kvp.Key;
+                    order.count = kvp.Value;
+                    result = CheckAccount(order);
+                    if (result == ApiResultEnum.Success)
+                    {
+                        int block = (int)StockInfoBiz.GetBlock(order.code);
+                        if (block >= 0 && block <= 3)
+                            order.price = Math.Round(order.price, 2);
+                        jybizs[order.account_id].Order(order);
+                        order_count += order.count;
+                    }
+                }
+            }
+            return order_count;
+        }
+
+        public static List<JY.PositionItem> QueryPosition(int account_id)
+        {
+             return jybizs[account_id].QueryPosition();
+        }
+
+        public static void Cancel(int account_id, string order_no)
+        {
+            jybizs[account_id].Cancel(order_no);
+        }
+
+        public static void NewDeal(Deal deal, Order order)
+        {
+            //计算手续费，佣金最少收5元
+            string key_unit = "U_" + deal.unit_id;
+            Unit unit = UnitRA.Get(key_unit);
+            deal.commission = Math.Max(Math.Round(deal.money * unit.ratio_commission, 2), 5);
+            deal.management_fee = Math.Round(deal.money * unit.ratio_management_fee, 2);
+
+            //卖单计算盈亏
+            string key_positon = "P_" + deal.code + "_A_" + deal.account_id + "_U_" + deal.unit_id;
+            Position position = PositionRA.Get(key_positon);
+            if (deal.type == 1 && position != null)
+                deal.profit = Math.Round((deal.price - position.price_cost) * deal.count, 2);
+
+            //更新手续费和盈亏
+            string key_deal = "D_" + deal.deal_no + "_O_" + deal.order_no + "_U_" + deal.unit_id;
+            DealRA.UpdateFee(deal, key_deal);
+
+            //更新单元余额和冻结
+            if (deal.type_enum == OrderTypeEnum.Buy)
+                UnitRA.UpdateCapitalDealBuy(order.price * deal.count, key_unit);
+            else if (deal.type_enum == OrderTypeEnum.Sell)
+                UnitRA.UpdateCapitalDealSell(deal.price * deal.count, key_unit);
+
+            //更新持仓
+            decimal amount = deal.money + deal.commission;
+            if (position != null)
+            {
+                if (deal.type == 0)
+                {
+                    position.price_cost = Math.Round((position.price_cost * position.count + amount) / (deal.count + position.count), 3);
+                    position.count = position.count + deal.count;
+                    position.price_cost_today_buy = Math.Round((amount + position.price_cost_today_buy * position.count_today_buy) / (deal.count + position.count_today_buy), 3);
+                    position.count_today_buy = deal.count + position.count_today_buy;
+                    PositionRA.UpdateBuy(position, key_positon);
+                }
+                else
+                {
+                    position.price_cost = Math.Round((position.price_cost * position.count - amount) / (position.count - deal.count), 3);
+                    position.count = position.count - deal.count;
+                    position.count_sellable = position.count_sellable - deal.count;
+                    position.price_cost_today_sell = Math.Round((amount + position.price_cost_today_sell * position.count_today_sell) / (deal.count + position.count_today_sell), 3);
+                    position.count_today_sell = deal.count + position.count_today_sell;
+                    PositionRA.UpdateSell(position, key_positon);
+                }
+            }
+            else
+            {
+                position = new Position()
+                {
+                    code = deal.code,
+                    name = deal.name,
+                    unit_id = deal.unit_id,
+                    account_id = deal.account_id,
+                    block_enum = StockInfoBiz.GetBlock(deal.code)
+                };
+                if (deal.type == 0)
+                {
+                    position.price_cost = position.price_cost_today_buy = Math.Round(amount / deal.count, 3);
+                    position.price_cost_today_sell = position.count_sellable = position.count_today_sell = 0;
+                    position.count = position.count_today_buy = deal.count;
+                }
+                else
+                {
+                    position.price_cost = position.price_cost_today_sell = Math.Round(amount / deal.count, 3);
+                    position.count = position.count_sellable = -deal.count;
+                    position.price_cost_today_buy = position.count_today_buy = 0;
+                    position.count_today_sell = deal.count;
+                }
+                PositionRA.Add(position, key_positon);
+            }
+            RunCalculateValue();
+        }
+
+        //检查系统和用户是否满足下单条件
+        public static ApiResultEnum CheckStatus(Order model)
+        {
+            StatusOrderEnum status_order = (StatusOrderEnum)int.Parse(UserRA.Get(model.user_id.ToString(), "status_order"));
+            if (status_order == StatusOrderEnum.Forbidden)
+                return ApiResultEnum.Order_User_Forbidden;
+            if (status_order == StatusOrderEnum.NoBuying)
+                return ApiResultEnum.Order_User_NoBuying;
+
+            StatusTradeEnum status_trade = (StatusTradeEnum)TradeRA.GetInt("status_trade");
+            if (status_trade == StatusTradeEnum.Closed)
+                return ApiResultEnum.Order_Closed;
+            else if (status_trade == StatusTradeEnum.Pause)
+                return ApiResultEnum.Order_Paused;
+
+            StockInfo stock = StockInfoBiz.GetStock(model.code);
+            if (stock == null)
+                return ApiResultEnum.Order_Code_Error;
+
+            BlockEnum block = StockInfoBiz.GetBlock(model.code);
+            if (block == BlockEnum.unknow)
+                return ApiResultEnum.Order_Code_Error;
+            if (model.price == 0)
+                return ApiResultEnum.Order_Price_Error;
+            else if (model.count == 0)
+                return ApiResultEnum.Order_Count_Error;
+
+            return ApiResultEnum.Success;
+        }
+
+        //检查单元是否满足下单条件
+        public static ApiResultEnum CheckUnit(Order order)
+        {
+            if (order.type_enum == OrderTypeEnum.Buy)
+            {
+                Unit unit = UnitRA.Get("U_" + order.unit_id);
+                if (unit.capital_available < order.price * order.count)
+                    return ApiResultEnum.Order_Unit_Negative_Amount;
+            }
+            else
+            {
+                if (PositionRA.GetSellable(order.unit_id, order.code) < order.count)
+                    return ApiResultEnum.Order_Unit_Negative_Position;
+            }
+            return ApiResultEnum.Success;
+        }
+
+        //检查主账户是否满足下单条件
+        public static ApiResultEnum CheckAccount(Order order)
+        {
+            if (order.type_enum == OrderTypeEnum.Buy)
+            {
+                Unit unit = UnitRA.Get("U_" + order.unit_id);
+                AccountGroupItem item = AccountGroupRA.Get("G_" + unit.account_group_id + "_A_" + order.account_id + "_U_" + order.unit_id);
+                if (item.capital_available > 0 && item.capital_available < order.price * order.count + item.capital_stock_value)
+                    return ApiResultEnum.Order_Account_Negative_Amount;
+            }
+            else
+            {
+                if (PositionRA.GetSellable(order.unit_id, order.code, order.account_id) < order.count)
+                    return ApiResultEnum.Order_Account_Negative_Position;
+            }
+
+            //风控通过进行冻结
+            if (order.type_enum == OrderTypeEnum.Buy)
+            {
+                string key_unit = "U_" + order.unit_id;
+                UnitRA.UpdateCapitalOrderBuy(order.price * order.count, key_unit);
+            }
+            else if (order.type_enum == OrderTypeEnum.Sell)
+            {
+                string key_position = "P_" + order.code + "_A_" + order.account_id + "_U_" + order.unit_id;
+                PositionRA.UpdateSellableOrderSell(-order.count, key_position);
+            }
+            return ApiResultEnum.Success;
+        }
+
+        //将单元的下单数量分配到主账户
+        public static Dictionary<int, int> GetOrderAccount(Order order)
+        {
+            Dictionary<int, int> order_items = new Dictionary<int, int>();
+            Unit unit = UnitRA.Get("U_" + order.unit_id);
+            List<AccountGroupItem> items = AccountGroupRA.List4Unit(order.unit_id);
+            items.OrderBy(i => i.sort_buy).ToList();
+            int total = 0;
+            if (order.type_enum == OrderTypeEnum.Buy)
+            {
+                if (unit.priority_strategy_enum == PriorityStrategyEnum.Natural)
+                    items = items.OrderBy(i => i.sort_buy).ToList();
+                else
+                    items = items.OrderByDescending(i => i.capital_available).ToList();
+                foreach (AccountGroupItem item in items)
+                {
+                    int buyable = (item.capital_available == decimal.MaxValue) ? (order.count - total) : (int)(item.capital_available / 100 / order.price) * 100;
+                    int ct = Math.Min(buyable, (order.count - total));
+                    order_items.Add(item.account_id, ct);
+                    total += ct;
+                    if (ct == order.count)
+                        break;
+                }
+            }
+            else
+            {
+                items = items.OrderBy(i => i.sort_sell).ToList();
+                foreach (AccountGroupItem item in items)
+                {
+                    int sellable = PositionRA.GetSellable(order.unit_id, order.code, item.account_id);
+                    int ct = Math.Min(sellable, (order.count - total));
+                    order_items.Add(item.account_id, ct);
+                    total += ct;
+                    if (ct == order.count)
+                        break;
+                }
+            }
+            return order_items;
+        }
+    }
+}

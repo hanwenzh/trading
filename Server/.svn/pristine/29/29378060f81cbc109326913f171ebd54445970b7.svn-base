@@ -1,0 +1,111 @@
+﻿using JY;
+using Model.DB;
+using MySQLSrv;
+using RedisSrv;
+using System;
+using System.Collections.Generic;
+
+namespace Trade.Biz
+{
+    public class JYBiz
+    {
+        private static Dictionary<int, JYService> JYs = new Dictionary<int, JYService>();
+        public static void Init()
+        {
+            JYs.Clear();
+            //List<Account> accounts = AccountDA.List();
+            //foreach (Account account in accounts)
+            //{
+            //    JYs.Add(account.id, new JYService(account.server_ip, account.server_port));
+            //}
+            JYs.Add(1, new JYService("192.168.1.101", 8899));
+            QueryOrder();
+            QueryDeal();
+        }
+
+        public string Order(Model.API.Order order, int account_id, int user_id, int unit_id)
+        {
+            string order_no;
+            string error = JYs[account_id].Order(order, out order_no);
+            if (!string.IsNullOrWhiteSpace(order_no))
+            {
+                Dictionary<string, string> items = new Dictionary<string, string>();
+                items.Add("code", order.code);
+                items.Add("price", order.price.ToString());
+                items.Add("count", order.count.ToString());
+                items.Add("type", order.type.ToString());
+                items.Add("order_no", order_no);
+                items.Add("unit_id", unit_id.ToString());
+                items.Add("user_id", user_id.ToString());
+                items.Add("account_id", account_id.ToString());
+                TradeRA.SetFields("O_" + order_no, items);
+                TradeRA.KeyExists("O_" + order_no);
+            }
+            return error;
+        }
+
+        private static void QueryOrder()
+        {
+            foreach(var jys in JYs)
+            {
+                List<Order> orders = jys.Value.QueryOrder();
+                foreach(Order order in orders)
+                {
+                    Dictionary<string, string> items = new Dictionary<string, string>();
+                    items.Add("name", order.name);
+                    items.Add("deal_count", order.deal_count.ToString());
+                    items.Add("cancel_count", order.cancel_count.ToString());
+                    items.Add("status", order.status);
+                    items.Add("time", order.time);
+                    bool exists = TradeRA.KeyExists("O_" + order.order_no);
+                    if(!exists)
+                    {
+                        items.Add("code", order.code);
+                        items.Add("price", order.price.ToString());
+                        items.Add("count", order.count.ToString());
+                        items.Add("type", order.type.ToString());
+                        items.Add("order_no", order.order_no);
+                        items.Add("unit_id", "");
+                        items.Add("user_id", "");
+                        items.Add("account_id", jys.Key.ToString());
+                    }
+                    TradeRA.SetFields("O_" + order.order_no, items);
+                    if (!exists)
+                    {
+                        TradeRA.KeyExists("O_" + order.order_no);
+                    }
+                }
+            }
+        }
+
+        private static void QueryDeal()
+        {
+            foreach (var jys in JYs)
+            {
+                List<Deal> deals = jys.Value.QueryDeal();
+                foreach (Deal deal in deals)
+                {
+                    string key = "O_" + deal.order_no + "_D_" + deal.order_no;
+                    if (!TradeRA.KeyExists(key))
+                    {
+                        string[] vals = TradeRA.GetFields("O_" + deal.order_no, new string[2] { "unit_id", "user_id" });
+                        Dictionary<string, string> items = new Dictionary<string, string>();
+                        items.Add("code", deal.code);
+                        items.Add("name", deal.name);
+                        items.Add("type", deal.type.ToString());
+                        items.Add("price", deal.price.ToString());
+                        items.Add("count", deal.count.ToString());
+                        items.Add("money", deal.money.ToString());
+                        items.Add("time", deal.time);
+                        items.Add("deal_no", deal.deal_no);
+                        items.Add("order_no", deal.order_no);
+                        items.Add("unit_id", vals[0]);
+                        items.Add("user_id", vals[1]);
+                        items.Add("account_id", jys.Key.ToString());
+                        TradeRA.SetFields(key, items);
+                    }
+                }
+            }
+        }
+    }
+}

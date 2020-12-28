@@ -1,0 +1,25 @@
+﻿using Model.Enum;
+using System;
+using System.Runtime.Serialization;
+
+namespace Model.Search
+{
+    [DataContract]
+    public class SearchOrderStatus : Search, ISearch
+    {
+        [DataMember]
+        public OrderStatusEnum status { get; set; }
+
+        public new string Where()
+        {
+            string where = base.Where();
+            if (status == OrderStatusEnum.Success)
+                where += " AND LENGTH(order_no) > 0";
+            else if (status == OrderStatusEnum.Abnormal)
+                where += " AND LENGTH(order_no) = 0 AND LENGTH(remark) = 0";
+            else
+                where += " AND LENGTH(order_no) = 0 AND LENGTH(remark) > 0";
+            return where;
+        }
+    }
+}

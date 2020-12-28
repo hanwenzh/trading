@@ -1,0 +1,75 @@
+﻿using Model.Return;
+using Model.Enum;
+using MySQLSrv;
+using Trade.Interface;
+using System;
+using System.Collections.Generic;
+using System.ServiceModel.Activation;
+using RedisSrv;
+using Trade.Biz;
+using System.Linq;
+using Common;
+
+namespace Trade.Service
+{
+    [AspNetCompatibilityRequirements(RequirementsMode = AspNetCompatibilityRequirementsMode.Allowed)]
+    public class AccountGroup : Service, IAccountGroup
+    {
+        public ResultAccountGroup List()
+        {
+            UserRoleEnum role = (UserRoleEnum)int.Parse(UserRA.Get(user_id.ToString(), "role"));
+            List<Model.DB.AccountGroup> lst = AccountGroupDA.List4User(role == UserRoleEnum.Administrator ? 0 : user_id);
+            return new ResultAccountGroup(lst);
+        }
+
+        public ResultLong Add(Model.DB.AccountGroup model)
+        {
+            int id = 0;
+            model.created_by = user_id;
+            ApiResultEnum result = AccountGroupDA.Add(model, ref id);
+            return Result(result, id);
+        }
+
+        public Result Update(Model.DB.AccountGroup model)
+        {
+            return Result(AccountGroupDA.Update(model));
+        }
+
+        public Result UpdateItems(Model.DB.AccountGroup model)
+        {
+            model.items = model.items.OrderBy(i => i.sort_buy).AsEnumerable().DistinctBy(i => i.account_id).ToList();
+            ApiResultEnum result = AccountGroupDA.UpdateItems(model);
+            if (result == ApiResultEnum.Success && TradeRA.GetStatusTrade() != 0)
+            {
+                var units = UnitDA.List4AccountGroup(model.id);
+                foreach(var kvp in units)
+                {
+                    UnitRA.UpdatePriorityStrategy(model.priority_strategy, "U_" + kvp.id);
+                }
+                AccountGroupRA.Delete4AccountGroup(model.id);
+                List<Model.DB.AccountGroupItem> items = AccountGroupDA.ListItems4AccountGroup(model.id);
+                foreach (Model.DB.AccountGroupItem item in items)
+                {
+                    OpenCloseBiz.LoadAccountGroupItem(item);
+                }
+                TradeBiz.RunCalculateValue();
+            }
+            return Result(result);
+        }
+
+        public Result Delete(Model.DB.AccountGroup model)
+        {
+            var units = UnitDA.List4AccountGroup(model.id);
+            if (units.Count > 0)
+                return Result(ApiResultEnum.Cited, string.Join(",", units.Select(u => u.code)));
+
+            model.created_by = user_id;
+            ApiResultEnum result = AccountGroupDA.Delete(model);
+            if (result == ApiResultEnum.Success && TradeRA.GetStatusTrade() != 0)
+            {
+                AccountGroupRA.Delete4AccountGroup(model.id);
+            }
+            return Result(result);
+        }
+    }
+}

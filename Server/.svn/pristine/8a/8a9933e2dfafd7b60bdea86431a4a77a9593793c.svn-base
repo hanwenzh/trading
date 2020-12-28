@@ -1,0 +1,50 @@
+﻿using Model.API;
+using Model.Common;
+using Model.Enum;
+using Model.MySQL;
+using MySQLSrv;
+using RapidTrade.Interface;
+using RedisSrv;
+using System;
+using System.Collections.Generic;
+using System.ServiceModel.Activation;
+
+namespace RapidTrade.Service
+{
+    [AspNetCompatibilityRequirements(RequirementsMode = AspNetCompatibilityRequirementsMode.Allowed)]
+    public class Account : Service, IAccount
+    {
+        public Result List()
+        {
+            List<Model.MySQL.Account> lst = AccountDA.List();
+            return Result(ApiResultEnum.Success, lst);
+        }
+
+        public Result Add(Model.MySQL.Account model)
+        {
+            int id = 0;
+            ApiResultEnum result = AccountDA.Add(model, ref id, user_id);
+            return Result(result, id);
+        }
+
+        public Result Update(Model.MySQL.Account model)
+        {
+            return Result(AccountDA.Update(model));
+        }
+
+        public Result UpdateStatus(Status model)
+        {
+            return Result(AccountDA.UpdateStatus(model));
+        }
+
+        public Result UpdateStatusTrade(StatusTrade model)
+        {
+            return Result(AccountDA.UpdateStatusTrade(model));
+        }
+
+        public Result Delete(Model.MySQL.Account model)
+        {
+            return Result(AccountDA.Delete(model, user_id));
+        }
+    }
+}

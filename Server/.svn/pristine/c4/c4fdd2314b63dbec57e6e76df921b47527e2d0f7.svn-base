@@ -1,0 +1,98 @@
+﻿using System;
+using System.Collections.Generic;
+using Order = Model.DB.Order;
+
+namespace RedisSrv
+{
+    public class OrderRA
+    {
+        public static Order Get(string key)
+        {
+            Dictionary<string, string> dic = TradeRA.GetFields(key);
+            if (dic.Count == 0)
+                return new Order();
+            else
+                return new Order()
+                {
+                    code = dic["code"],
+                    name = dic["name"],
+                    deal_count = (int)decimal.Parse(dic["deal_count"]),
+                    cancel_count = (int)decimal.Parse(dic["cancel_count"]),
+                    status = dic["status"],
+                    time = dic["time"],
+                    price = decimal.Parse(dic["price"]),
+                    count = (int)decimal.Parse(dic["count"]),
+                    type = int.Parse(dic["type"]),
+                    order_no = dic["order_no"],
+                    remark = dic["remark"],
+                    unit_id = int.Parse(dic["unit_id"]),
+                    user_id = int.Parse(dic["user_id"]),
+                    account_id = int.Parse(dic["account_id"]),
+                    deal_average_price = decimal.Parse(dic["deal_average_price"]),
+                    platform = int.Parse(dic["platform"])
+                };
+        }
+
+        public static void Add(Order order, string key)
+        {
+            Dictionary<string, string> items = new Dictionary<string, string>();
+            items.Add("code", order.code);
+            items.Add("name", order.name);
+            items.Add("price", order.price.ToString());
+            items.Add("count", order.count.ToString());
+            items.Add("type", order.type.ToString());
+            items.Add("unit_id", order.unit_id.ToString());
+            items.Add("user_id", order.user_id.ToString());
+            items.Add("platform", order.platform.ToString());
+            items.Add("deal_count", order.deal_count.ToString());
+            items.Add("deal_average_price", order.deal_average_price.ToString());
+            items.Add("cancel_count", "0");
+            items.Add("status", order.status ?? "");
+            items.Add("time", order.time);
+            items.Add("account_id", order.account_id.ToString());
+            items.Add("order_no", order.order_no ?? "");
+            items.Add("remark", order.remark ?? "");
+            TradeRA.SetFields(key, items);
+            TradeRA.SetExpire(key);
+        }
+
+        public static void UpdateDone(Order order, string key)
+        {
+            Dictionary<string, string> items = new Dictionary<string, string>();
+            items.Add("order_no", order.order_no);
+            items.Add("remark", order.remark);
+            TradeRA.SetFields(key, items);
+            if (!string.IsNullOrWhiteSpace(order.order_no))
+            {
+                TradeRA.KeyRename(key, "O_" + order.order_no);
+            }
+        }
+
+        public static void UpdateNew(Order order, string key)
+        {
+            Dictionary<string, string> items = new Dictionary<string, string>();
+            items.Add("name", order.name);
+            items.Add("deal_count", order.deal_count.ToString());
+            items.Add("cancel_count", order.cancel_count.ToString());
+            items.Add("status", order.status);
+            items.Add("time", order.time);
+            TradeRA.SetFields(key, items);
+        }
+
+        public static void UpdateStatus(Order order, string key)
+        {
+            Dictionary<string, string> items = new Dictionary<string, string>();
+            items.Add("deal_count", order.deal_count.ToString());
+            items.Add("cancel_count", order.cancel_count.ToString());
+            items.Add("status", order.status);
+            TradeRA.SetFields(key, items);
+        }
+
+        public static void UpdateAverageOrice(decimal deal_average_price, string key)
+        {
+            Dictionary<string, string> items = new Dictionary<string, string>();
+            items.Add("deal_average_price", deal_average_price.ToString("#0.000"));
+            TradeRA.SetFields(key, items);
+        }
+    }
+}

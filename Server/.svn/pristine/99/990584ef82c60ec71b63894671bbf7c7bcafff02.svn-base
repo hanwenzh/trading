@@ -1,0 +1,238 @@
+﻿using Model.Return;
+using Model.Enum;
+using Model.DB;
+using MySQLSrv;
+using Trade.Interface;
+using System;
+using System.Collections.Generic;
+using System.ServiceModel.Activation;
+using Model.API;
+using RedisSrv;
+using System.Linq;
+using Model.Search;
+using Trade.Biz;
+using HQ;
+
+namespace Trade.Service
+{
+    [AspNetCompatibilityRequirements(RequirementsMode = AspNetCompatibilityRequirementsMode.Allowed)]
+    public class System : Service, ISystem
+    {
+        public ResultLogTrade ListLogTrade()
+        {
+            List<LogTrade> lst = LogTradeDA.List();
+            int status_trade = TradeRA.GetInt("status_trade");
+            if (status_trade == 1)
+                lst.Last().state = "交易中";
+            else if (status_trade == 2)
+                lst.Last().state = "已暂停";
+            return new ResultLogTrade(lst);
+        }
+
+        public Result UpdateStatusTrade(StatusTradeEnum status)
+        {
+            int status_trade = TradeRA.GetInt("status_trade");
+            if (status_trade == 0)
+            {
+                if (status != StatusTradeEnum.Opening)
+                    return Result(ApiResultEnum.Failed);
+
+                //开盘
+                if (!LogTradeDA.Open(UserRA.Get(user_id.ToString(), "name")))
+                    return Result(ApiResultEnum.Failed);
+
+                TradeRA.SetInt("status_trade", (int)status);
+                OpenCloseBiz.Open();
+            }
+            else
+            {
+                if (status == StatusTradeEnum.Opening)
+                {
+                    OpenCloseBiz.Open();
+                    return Result(ApiResultEnum.Success);
+                }
+                else if (status == StatusTradeEnum.Recovery)
+                    TradeRA.SetInt("status_trade", (int)StatusTradeEnum.Opening);
+                else if (status == StatusTradeEnum.Pause)
+                    TradeRA.SetInt("status_trade", (int)status);
+                else
+                {
+                    //收盘
+                    if (!LogTradeDA.Close(UserRA.Get(user_id.ToString(), "name")))
+                        return Result(ApiResultEnum.Failed);
+                    TradeRA.SetInt("status_trade", (int)status);
+                    OpenCloseBiz.Close();
+                }
+            }
+            return Result(ApiResultEnum.Success);
+        }
+
+        public ResultAccountPosition ListAccountPosition(int account_id)
+        {
+            List<AccountPosition> list = new List<AccountPosition>();
+            List<Position> list_in = (account_id == 0) ? PositionRA.List() : PositionRA.List4Account(account_id);
+            list_in.ForEach(p =>
+            {
+                list.Add(new AccountPosition()
+                {
+                    account_id = p.account_id,
+                    account_name = p.account_name,
+                    code = p.code,
+                    name = p.name,
+                    count = 0,
+                    count_in = p.count
+                });
+            });
+            List<Tuple<int, JY.PositionItem>> list_sys = new List<Tuple<int, JY.PositionItem>>();
+            if (account_id > 0)
+            {
+                TradeBiz.QueryPosition(account_id).ForEach(p =>
+                {
+                    list_sys.Add(new Tuple<int, JY.PositionItem>(account_id, p));
+                });
+            }
+            else
+            {
+                string[] keys = TradeRA.KeySearch("A_*");
+                foreach(var key in keys)
+                {
+                    int id = int.Parse(key.Substring(2));
+                    TradeBiz.QueryPosition(id).ForEach(p =>
+                    {
+                        list_sys.Add(new Tuple<int, JY.PositionItem>(id, p));
+                    });
+                }
+            }
+            foreach (var t in list_sys)
+            {
+                AccountPosition ap = list.Find(p => p.account_id == t.Item1 && p.code == t.Item2.code);
+                if (ap == null)
+                {
+                    list.Add(new AccountPosition()
+                    {
+                        account_id = t.Item1,
+                        account_name = AccountRA.GetName("A_" + t.Item1),
+                        code = t.Item2.code,
+                        name = t.Item2.name,
+                        count = (int)decimal.Parse(t.Item2.count),
+                        count_in = 0
+                    });
+                }
+                else
+                {
+                    ap.count = (int)decimal.Parse(t.Item2.count);
+                }
+            }
+
+            return new ResultAccountPosition(list);
+        }
+
+        public Result PositionTransfer(PositionTransfer model)
+        {
+            if (model.from_unit_id > 0 && model.to_unit_id > 0)
+            {
+                HQItem hq = HQService.Get(model.code);
+                decimal price_latest = hq != null ? hq.Last : 0;
+
+                List<Position> list = new List<Position>();
+                string[] keys = TradeRA.KeySearch("P_" + model.code + "_*_U_" + model.from_unit_id);
+                foreach (var key in keys)
+                {
+                    list.Add(PositionRA.Get(key));
+                }
+                if (model.count > list.Sum(p => p.count_sellable))
+                {
+                    int transfer_total = 0;
+                    foreach (Position position in list)
+                    {
+                        int transfer = Math.Min(model.count, position.count_sellable);
+                        PositionRA.UpdateTransfer(model.from_unit_id, model.to_unit_id, position.account_id, (model.to_account_id == 0 ? position.account_id : model.to_account_id), model.code, transfer, price_latest);
+                        transfer_total += transfer;
+
+                        if (transfer_total == model.count)
+                            break;
+                    }
+                    return Result(ApiResultEnum.Success);
+                }
+            }
+            return Result(ApiResultEnum.Failed);
+        }
+
+        public Result PositionMoveIn(PositionMoveIn model)
+        {
+            StockInfo stock = StockInfoBiz.GetStock(model.code);
+            if (stock == null || model.unit_id == 0 || model.account_id == 0 || model.price_cost == 0 || model.count == 0)
+                return Result(ApiResultEnum.Failed);
+
+            Position position = PositionRA.Get("P_" + model.code + "_A_" + model.account_id + "_U_" + model.unit_id);
+            Deal deal = new Deal()
+            {
+                code = model.code,
+                name = stock.name,
+                count = model.count,
+                price = model.price_cost,
+                money = model.count * model.price_cost,
+                unit_id = model.unit_id,
+                account_id = model.account_id,
+                type_enum = OrderTypeEnum.Buy,
+
+            };
+            TradeBiz.AdjustPosition(position, deal, model.price_cost, 2);
+            return Result(ApiResultEnum.Success);
+        }
+
+        public ResultOrder ListOrder(SearchOrderStatus model)
+        {
+            IEnumerable<Order> lst = new List<Order>();
+            if (model.from_dt.Date < DateTime.Now.Date)
+                lst = lst.Union(OrderDA.List(model));
+            if (model.from_dt.Date <= DateTime.Now.Date && model.to_dt.Date >= DateTime.Now.Date)
+            {
+                if (model.status == OrderStatusEnum.Success)
+                    lst = lst.Union(OrderRA.List4In());
+                else
+                    lst = lst.Union(OrderRA.List4Failed(model));
+            }
+            DataBiz.OrderMerge(ref lst);
+            return new ResultOrder(lst.ToList());
+        }
+
+        public ResultDeal ListDeal(SearchDealStatus model)
+        {
+            IEnumerable<Deal> lst = new List<Deal>();
+            if (model.from_dt.Date < DateTime.Now.Date)
+                lst = lst.Union(DealDA.List(model));
+            if (model.from_dt.Date <= DateTime.Now.Date && model.to_dt.Date >= DateTime.Now.Date)
+            {
+                if (model.status == DealStatusEnum.In)
+                    lst = lst.Union(DealRA.List().Where(d => d.unit_id > 0));
+                if (model.status == DealStatusEnum.In)
+                    lst = lst.Union(DealRA.List().Where(d => d.unit_id == 0));
+            }
+            return new ResultDeal(lst.OrderBy(o => o.time_dt).ToList());
+        }
+
+        public ResultPosition ListPosition()
+        {
+            IEnumerable<Position> lst = PositionRA.List();
+            DataBiz.PositionMerge(ref lst);
+            return new ResultPosition(lst.ToList());
+        }
+
+        public Result Transfer(Transfer model)
+        {
+            string[] keys = TradeRA.KeySearch("D_" + model.deal_no + "_*_U_0");
+            if (keys.Length > 0 && TradeRA.KeyExists("U_" + model.unit_id))
+            {
+                Deal deal = DealRA.Get(keys[0]);
+                deal.unit_id = model.unit_id;
+
+                DealRA.UpdateUnit(model.unit_id, keys[0]);
+                TradeRA.KeyRename(keys[0], keys[0].Substring(0, keys[0].Length - 1) + model.unit_id);
+                TradeBiz.NewDeal(deal, deal.price, 1);
+                return Result(ApiResultEnum.Success);
+            }
+            return Result(ApiResultEnum.Failed);
+        }
+    }
+}

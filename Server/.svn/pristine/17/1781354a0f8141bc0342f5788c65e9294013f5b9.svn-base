@@ -1,0 +1,1 @@
+﻿<%@ ServiceHost Language="C#" Debug="true" Service="RapidTrade.Service.Query" CodeBehind="Query.svc.cs" %>

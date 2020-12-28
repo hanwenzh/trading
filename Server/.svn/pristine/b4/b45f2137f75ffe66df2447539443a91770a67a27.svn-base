@@ -1,0 +1,51 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.ServiceModel;
+using Trade.Interface;
+
+namespace Trade.Biz
+{
+    public class MessageBiz
+    {
+        public static List<SubscribeComm> Subscribers = new List<SubscribeComm>();
+
+        public static void Subscribe(string token, INotice notice)
+        {
+            string user_id = token.Split('-')[0];
+            Subscribers.Add(new SubscribeComm()
+            {
+                User_ID = user_id,
+                Notice = notice
+            });
+
+            ICommunicationObject ico = (ICommunicationObject)notice;
+            ico.Closed += Ico_Closed;
+        }
+
+        public static void Send(string user_id, string msg)
+        {
+            var subs = Subscribers.Where(s => s.User_ID == user_id);
+            subs.ToList().ForEach(s =>
+            {
+                s.Notice.Notice(msg);
+            });
+        }
+
+        private static void Ico_Closed(object sender, EventArgs e)
+        {
+            var notice = (INotice)sender;
+            int index = Subscribers.FindIndex(s => s.Notice == notice);
+            if (index >= 0l)
+            {
+                Subscribers.RemoveAt(index);
+            }
+        }
+    }
+
+    public class SubscribeComm
+    {
+        public string User_ID { get; set; }
+        public INotice Notice { get; set; }
+    }
+}

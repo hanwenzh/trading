@@ -1,0 +1,94 @@
+﻿using Model.Return;
+using Model.Common;
+using Model.Enum;
+using Model.DB;
+using MySQLSrv;
+using Trade.Interface;
+using RedisSrv;
+using System;
+using System.Collections.Generic;
+using System.ServiceModel.Activation;
+using Trade.Code;
+using Common.SignalR;
+
+namespace Trade.Service
+{
+    [AspNetCompatibilityRequirements(RequirementsMode = AspNetCompatibilityRequirementsMode.Allowed)]
+    public class User : Service, IUser
+    {
+        public ResultUser List()
+        {
+            List<Model.DB.User> lst = UserDA.List(user_id);
+            return new ResultUser(lst);
+        }
+
+        public ResultLong Add(Model.DB.User model)
+        {
+            int id = 0;
+            model.created_by = user_id;
+            ApiResultEnum result = UserDA.Add(model, ref id);
+            return Result(result, id);
+        }
+
+        public Result Update(Model.DB.User model)
+        {
+            return Result(UserDA.Update(model));
+        }
+
+        public Result Authority(Model.DB.User model)
+        {
+            MessageBiz.Send(model.id.ToString(), MessageTypeEnum.Authorization_Changed);
+            return Result(UserDA.Authority(model));
+        }
+
+        public Result UpdatePassword(UserPassword model)
+        {
+            model.id = user_id.ToString();
+            return Result(UserDA.UpdatePassword(model));
+        }
+
+        public Result ResetPassword(UserPassword model)
+        {
+            MessageBiz.Send(model.id.ToString(), MessageTypeEnum.Password_Changed);
+            return Result(UserDA.ResetPassword(model));
+        }
+
+        public Result UpdateStatus(Status model)
+        {
+            if (model.status == StatusEnum.Forbidden)
+            {
+                UserRA.Delete(model.id.ToString());
+                MessageBiz.Send(model.id.ToString(), MessageTypeEnum.User_Forbidden);
+            }
+            return Result(UserDA.UpdateStatus(model));
+        }
+
+        public Result UpdateStatusOrder(StatusOrder model)
+        {
+            string status_order = ((int)model.status).ToString();
+            if (UserRA.Exists(model.id.ToString()))
+                UserRA.Set(model.id.ToString(), "status_order", status_order);
+            MessageBiz.Send(model.id.ToString(), MessageTypeEnum.User_Order_Status, status_order);
+            return Result(UserDA.UpdateStatusOrder(model));
+        }
+
+        public Result UpdateUnits(UserUnits model)
+        {
+            return Result(UnitDA.UpdateUserID(model));
+        }
+
+        public Result Delete(Model.DB.User model)
+        {
+            UserRA.Delete(model.id.ToString());
+            MessageBiz.Send(model.id.ToString(), MessageTypeEnum.User_Forbidden);
+            model.created_by = user_id;
+            return Result(UserDA.Delete(model));
+        }
+
+        public Result Logout()
+        {
+            UserRA.Delete(user_id.ToString(), platform.ToString());
+            return Result(ApiResultEnum.Success);
+        }
+    }
+}

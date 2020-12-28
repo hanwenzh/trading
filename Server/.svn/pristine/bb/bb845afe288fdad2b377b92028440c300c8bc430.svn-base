@@ -1,0 +1,33 @@
+﻿using Model.API;
+using Model.Enum;
+using System;
+using System.ServiceModel.Web;
+
+namespace RapidTrade.Service
+{
+    public class Service
+    {
+        protected string user_id { get; set; }
+
+        protected string user_token { get; set; }
+
+        protected string platform { get; set; }
+
+        public Service()
+        {
+            platform = WebOperationContext.Current.IncomingRequest.Headers["platform"];
+            string _token = WebOperationContext.Current.IncomingRequest.Headers["token"];
+            if(!string.IsNullOrWhiteSpace(_token))
+            {
+                string[] _tokens = _token.Split('-');
+                user_id = _tokens[0];
+                user_token = _tokens[1];
+            }
+        }
+
+        protected Result Result(ApiResultEnum code, object data = null)
+        {
+            return new Result(code, data);
+        }
+    }
+}

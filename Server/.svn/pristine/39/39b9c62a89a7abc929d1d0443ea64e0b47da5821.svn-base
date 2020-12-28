@@ -1,0 +1,20 @@
+﻿using System;
+
+namespace Model.Enum
+{
+    public enum ApiResultEnum
+    {
+        Success = 1,
+        Failed = 0,
+        NotLoggedIn = -1,
+        InvalidRequest = -2,
+        Unauthorized = -3,
+
+        Code_Exist = -10,
+
+        User_Mobile_Exist = -20,
+        User_Password_Incorrect = -21,
+        User_Code_Password_Mismatch = -22,
+        User_Platform_Incorrect = -23,
+    }
+}

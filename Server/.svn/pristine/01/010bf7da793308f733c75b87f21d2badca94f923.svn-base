@@ -1,0 +1,59 @@
+﻿using Common.SignalR;
+using RedisSrv;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace Trade.Code
+{
+    public class MessageBiz
+    {
+        private static Dictionary<string, string> Users = new Dictionary<string, string>();
+
+        static MessageBiz()
+        {
+            MessageHub.Subscribed += MessageHub_Subscribed;
+            MessageHub.Disconnected += MessageHub_Disconnected;
+        }
+
+        private static void MessageHub_Subscribed(object _conn_id, string token)
+        {
+            string conn_id = _conn_id.ToString();
+            string[] tokens = token.Split('-');
+            MessageTypeEnum messageType = MessageTypeEnum.Subscribe_Failed;
+            if (tokens.Length == 3)
+            {
+                string user_token = UserRA.Get(tokens[0], "platform_" + tokens[2]);
+                if (tokens[1] == user_token)
+                {
+                    lock (Users)
+                    {
+                        Users.Add(conn_id, token);
+                    }
+                    messageType = MessageTypeEnum.Subscribe_Success;
+                }
+            }
+            MessageHub.Send(conn_id, messageType, "");
+        }
+
+        private static void MessageHub_Disconnected(object sender, string conn_id)
+        {
+            lock (Users)
+            {
+                Users.Remove(conn_id);
+            }
+        }
+
+        public static void Send(string user_id, MessageTypeEnum messageType, string message = "")
+        {
+            lock (Users)
+            {
+                var conn_ids = Users.Where(p => p.Value == user_id).Select(u => u.Key).ToList();
+                if (conn_ids.Count() > 0)
+                {
+                    MessageHub.Send(conn_ids, messageType, message);
+                }
+            }
+        }
+    }
+}

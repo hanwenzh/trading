@@ -1,0 +1,40 @@
+﻿using Microsoft.AspNet.SignalR;
+using Microsoft.Owin;
+using Microsoft.Owin.Hosting;
+using Owin;
+using System;
+using System.Configuration;
+
+[assembly: OwinStartup(typeof(Common.SignalR.MessageService))]
+namespace Common.SignalR
+{
+    public class MessageService
+    {
+        private static IDisposable SignalR { get; set; }
+        private static string ServerURI = ConfigurationManager.AppSettings["SignalRUrl"];
+
+        public static bool Init()
+        {
+            try
+            {
+                SignalR = WebApp.Start(ServerURI);
+                NLog.Info("SignalR启动成功");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                NLog.Error("SignalR启动失败", ex);
+                return false;
+            }
+        }
+
+        public void Configuration(IAppBuilder app)
+        {
+            HubConfiguration configuration = new HubConfiguration
+            {
+                EnableDetailedErrors = true
+            };
+            app.MapSignalR(configuration);
+        }
+    }
+}

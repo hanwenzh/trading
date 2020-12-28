@@ -1,0 +1,84 @@
+﻿using System;
+using System.ServiceModel.Description;
+using System.ServiceModel.Dispatcher;
+using System.ServiceModel.Channels;
+using System.ServiceModel;
+using System.ServiceModel.Configuration;
+using System.ServiceModel.Web;
+using RedisSrv.Helper;
+using RedisSrv;
+using Model.API;
+
+namespace RapidTrade.Code
+{
+    public class TokenDispatchMessageInspector : IDispatchMessageInspector
+    {
+        public object AfterReceiveRequest(ref Message request, IClientChannel channel, InstanceContext instanceContext)
+        {
+            string platform = WebOperationContext.Current.IncomingRequest.Headers["platform"];
+            string token = WebOperationContext.Current.IncomingRequest.Headers["token"];
+            if (string.IsNullOrWhiteSpace(token) || string.IsNullOrWhiteSpace(platform))
+            {
+                request.Close();
+            }
+            else
+            {
+                string id = AuthorityRA.Get(token, platform);
+                if (string.IsNullOrWhiteSpace(id))
+                {
+                    //request.Close();
+                }
+                else
+                    request.Headers.Action = id;
+            }
+            return null;
+        }
+
+        public void BeforeSendReply(ref Message reply, object correlationState)
+        {
+        }
+    }
+
+    public class TokenEndpointBehavior : IEndpointBehavior
+    {
+        public void AddBindingParameters(ServiceEndpoint endpoint, BindingParameterCollection bindingParameters)
+        {
+        }
+
+        public void ApplyClientBehavior(ServiceEndpoint endpoint, ClientRuntime clientRuntime)
+        {
+        }
+
+        public void ApplyDispatchBehavior(ServiceEndpoint endpoint, EndpointDispatcher endpointDispatcher)
+        {
+            ChannelDispatcher channelDispatcher = endpointDispatcher.ChannelDispatcher;
+            if (channelDispatcher != null)
+            {
+                foreach (EndpointDispatcher ed in channelDispatcher.Endpoints)
+                {
+                    ed.DispatchRuntime.MessageInspectors.Add(new TokenDispatchMessageInspector());
+                }
+            }
+        }
+
+        public void Validate(ServiceEndpoint endpoint)
+        {
+        }
+    }
+
+    public class TokenBehaviorExtensionElement : BehaviorExtensionElement
+    {
+        protected override object CreateBehavior()
+        {
+            return new TokenEndpointBehavior();
+        }
+
+        public override Type BehaviorType
+        {
+            get
+            {
+                return typeof(TokenEndpointBehavior);
+            }
+        }
+    }
+}

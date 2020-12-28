@@ -1,0 +1,68 @@
+﻿using System;
+using System.Collections.Generic;
+using Model.DB;
+
+namespace RedisSrv
+{
+    public class AccountGroupRA
+    {
+        public static List<AccountGroupItem> List4Unit(int unit_id)
+        {
+            List<AccountGroupItem> list = new List<AccountGroupItem>();
+            string[] keys = TradeRA.KeySearch("G_*_U_" + unit_id);
+            foreach (string key in keys)
+            {
+                list.Add(Get(key));
+            }
+            return list;
+        }
+
+        public static AccountGroupItem Get(string key)
+        {
+            Dictionary<string, string> dic = TradeRA.GetFields(key);
+            return new AccountGroupItem()
+            {
+                account_group_id = int.Parse(dic["account_group_id"]),
+                account_id = int.Parse(dic["account_id"]),
+                capital_allow = decimal.Parse(dic["capital_allow"]),
+                sort_buy = int.Parse(dic["sort_buy"]),
+                sort_sell = int.Parse(dic["sort_sell"]),
+                unit_id = int.Parse(dic["unit_id"]),
+                capital_stock_value = decimal.Parse(dic["capital_stock_value"])
+            };
+        }
+
+        public static void Add(AccountGroupItem item, string key)
+        {
+            Dictionary<string, string> items = new Dictionary<string, string>();
+            items.Add("account_group_id", item.account_group_id.ToString());
+            items.Add("account_id", item.account_id.ToString());
+            items.Add("capital_allow", item.capital_allow.ToString());
+            items.Add("sort_buy", item.sort_buy.ToString());
+            items.Add("sort_sell", item.sort_sell.ToString());
+            items.Add("unit_id", item.unit_id.ToString());
+            items.Add("capital_stock_value", item.capital_stock_value.ToString());
+            TradeRA.SetFields(key, items);
+            TradeRA.SetExpire(key);
+        }
+
+        public static void Delete4AccountGroup(int account_group_id)
+        {
+            string[] keys = TradeRA.KeySearch("G_" + account_group_id + "_*");
+            foreach (string key in keys)
+            {
+                TradeRA.Delete(key);
+            }
+        }
+
+        public static void UpdateCapitalStockValue(string au, decimal value)
+        {
+            List<AccountGroupItem> list = new List<AccountGroupItem>();
+            string[] keys = TradeRA.KeySearch("G_*_" + au);
+            foreach (string key in keys)
+            {
+                TradeRA.Set(key, "capital_stock_value", value.ToString());
+            }
+        }
+    }
+}

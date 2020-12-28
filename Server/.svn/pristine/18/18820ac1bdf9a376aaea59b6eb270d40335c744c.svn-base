@@ -1,0 +1,43 @@
+﻿using Model.API;
+using Model.Common;
+using Model.MySQL;
+using System;
+using System.Collections.Generic;
+using System.ServiceModel;
+using System.ServiceModel.Web;
+
+namespace RapidTrade.Interface
+{
+    [ServiceContract]
+    [ServiceKnownType(typeof(List<Unit>))]
+    public interface IUnit
+    {
+        [OperationContract]
+        [WebGet]
+        Result List();
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        Result Add(Unit model);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        Result Update(Unit model);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        Result UpdateStatus(Status model);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        Result UpdateRatioFreezing(Unit model);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        Result CapitalInOut(LogCapital model);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        Result Delete(Unit model);
+    }
+}

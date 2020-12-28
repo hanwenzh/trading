@@ -1,0 +1,22 @@
+﻿using System;
+
+namespace AutoUpgrade.Model
+{
+    public class ClientFile
+    {
+        public string name { get; set; }
+
+        public int size { get; set; }
+
+        //public int version { get; set; }
+
+        public string time { get; set; }
+    }
+
+    public class ClientFileCompare : ClientFile
+    {
+        public int size_new { get; set; }
+
+        public string time_new { get; set; }
+    }
+}

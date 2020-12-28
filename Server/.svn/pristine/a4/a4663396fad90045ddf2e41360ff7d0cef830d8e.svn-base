@@ -1,0 +1,72 @@
+﻿using System;
+using System.Collections.Generic;
+using Model.DB;
+
+namespace RedisSrv
+{
+    public class PositionRA
+    {
+        public static Position Get(string key)
+        {
+            Dictionary<string, string> dic = TradeRA.GetFields(key);
+            if (dic.Count == 0)
+                return null;
+            else
+                return new Position()
+                {
+                    id = int.Parse(dic["id"]),
+                    code = dic["code"],
+                    name = dic["name"],
+                    price_cost = decimal.Parse(dic["price_cost"]),
+                    count = int.Parse(dic["count"]),
+                    count_sellable = int.Parse(dic["count_sellable"]),
+                    price_cost_today_buy = decimal.Parse(dic["price_cost_today_buy"]),
+                    price_cost_today_sell = decimal.Parse(dic["price_cost_today_sell"]),
+                    count_today_buy = int.Parse(dic["count_today_buy"]),
+                    count_today_sell = int.Parse(dic["count_today_sell"]),
+                    unit_id = int.Parse(dic["unit_id"]),
+                    account_id = int.Parse(dic["account_id"])
+                };
+        }
+
+        public static void Add(Position position, string key)
+        {
+            Dictionary<string, string> items = new Dictionary<string, string>();
+            items.Add("id", position.id.ToString());
+            items.Add("code", position.code);
+            items.Add("name", position.name);
+            items.Add("price_cost", position.price_cost.ToString());
+            items.Add("count", position.count.ToString());
+            items.Add("count_sellable", position.count_sellable.ToString());
+            items.Add("price_cost_today_buy", position.price_cost_today_buy.ToString());
+            items.Add("price_cost_today_sell", position.price_cost_today_sell.ToString());
+            items.Add("count_today_buy", position.count_today_buy.ToString());
+            items.Add("count_today_sell", position.count_today_sell.ToString());
+            items.Add("unit_id", position.unit_id.ToString());
+            items.Add("account_id", position.account_id.ToString());
+            TradeRA.SetFields(key, items);
+            TradeRA.SetExpire(key);
+        }
+
+        public static void UpdateBuy(Position position, string key)
+        {
+            Dictionary<string, string> items = new Dictionary<string, string>();
+            items.Add("price_cost", position.price_cost.ToString());
+            items.Add("count", position.count.ToString());
+            items.Add("price_cost_today_buy", position.price_cost.ToString());
+            items.Add("count_today_buy", position.count.ToString());
+            TradeRA.SetFields(key, items);
+        }
+
+        public static void UpdateSell(Position position, string key)
+        {
+            Dictionary<string, string> items = new Dictionary<string, string>();
+            items.Add("price_cost", position.price_cost.ToString());
+            items.Add("count", position.count.ToString());
+            items.Add("count_sellable", position.count.ToString());
+            items.Add("price_cost_today_sell", position.price_cost.ToString());
+            items.Add("count_today_sell", position.count.ToString());
+            TradeRA.SetFields(key, items);
+        }
+    }
+}

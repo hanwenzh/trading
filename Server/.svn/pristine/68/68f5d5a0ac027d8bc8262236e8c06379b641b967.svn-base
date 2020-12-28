@@ -1,0 +1,199 @@
+﻿using Common;
+using MySql.Data.MySqlClient;
+using System;
+using System.Collections.Generic;
+using System.Configuration;
+using System.Data;
+
+namespace MySQLSrv.Helper
+{
+    internal class MySQLHelper
+    {
+        private static MySqlConnection connection;
+
+        internal static MySqlConnection GetConnection()
+        {
+            try
+            {
+                string connectionString = ConfigurationManager.ConnectionStrings["MySQLConnection"].ConnectionString;
+                if (connection == null)
+                    connection = new MySqlConnection(connectionString);
+                if (connection.State != ConnectionState.Open)
+                    connection.Open();
+                return connection;
+            }
+            catch(Exception ex)
+            {
+                NLog.Error("打开数据库连接失败", ex);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 给定连接的数据库用假设参数执行一个sql命令（不返回数据集）
+        /// </summary>
+        /// <param name="cmdText">存储过程名称或者sql命令语句</param>
+        /// <param name="commandParameters">执行命令所用参数的集合</param>
+        /// <param name="cmdType">命令类型(存储过程, 文本, 等等)</param>
+        /// <returns>执行命令所影响的行数</returns>
+        internal static int ExecuteNonQuery(string cmdText, MySqlParameter[] commandParameters, CommandType cmdType = CommandType.Text)
+        {
+            try
+            {
+                MySqlCommand cmd = new MySqlCommand();
+                PrepareCommand(cmd, cmdType, cmdText, commandParameters);
+                int val = cmd.ExecuteNonQuery();
+                cmd.Parameters.Clear();
+                return val;
+            }
+            catch (Exception ex)
+            {
+                NLog.Error("执行非查询语句失败", ex);
+                return 0;
+            }
+        }
+
+        /// <summary>
+        ///使用现有的SQL事务执行一串sql命令（不返回数据集）
+        /// </summary>
+        /// <param name="sqls">一个现有的事务</param>
+        /// <returns>执行命令所影响的行数</returns>
+        internal static bool ExecuteNonQuery(List<string> sqls)
+        {
+            MySqlConnection conn = GetConnection();
+            MySqlCommand cmd = new MySqlCommand();
+            MySqlTransaction trans = conn.BeginTransaction(IsolationLevel.ReadCommitted);
+            cmd.Connection = trans.Connection;
+            cmd.Transaction = trans;
+            bool flag = true;
+            try
+            {
+                foreach (string sql in sqls)
+                {
+                    cmd.CommandText = sql;
+                    if (cmd.ExecuteNonQuery() > 0)
+                    {
+                        flag = false;
+                        break;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                NLog.Error("执行事务失败", ex);
+                flag = false;
+            }
+            if (flag)
+            {
+                trans.Commit();
+            }
+            else
+            {
+                trans.Rollback();
+            }
+            conn.Close();
+            return flag;
+        }
+
+        /// <summary>
+        /// 用执行的数据库连接执行一个返回数据集的sql命令
+        /// </summary>
+        /// <param name="cmdType">命令类型(存储过程, 文本, 等等)</param>
+        /// <param name="cmdText">存储过程名称或者sql命令语句</param>
+        /// <param name="commandParameters">执行命令所用参数的集合</param>
+        /// <returns>包含结果的读取器</returns>
+        internal static MySqlDataReader ExecuteReader(string cmdText, MySqlParameter[] commandParameters, CommandType cmdType = CommandType.Text)
+        {
+            MySqlCommand cmd = new MySqlCommand();
+            MySqlConnection conn = GetConnection();
+            try
+            {
+                PrepareCommand(cmd, cmdType, cmdText, commandParameters, conn);
+                MySqlDataReader reader = cmd.ExecuteReader(CommandBehavior.CloseConnection);
+                cmd.Parameters.Clear();
+                return reader;
+            }
+            catch (Exception ex)
+            {
+                NLog.Error("执行Reader查询失败", ex);
+                conn.Close();
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 返回DataTable
+        /// </summary>
+        /// <param name="cmdText">存储过程名称或者sql命令语句</param>
+        /// <param name="commandParameters">执行命令所用参数的集合</param>
+        /// <param name="cmdType">命令类型(存储过程, 文本, 等等)</param>
+        /// <returns></returns>
+        internal static DataTable GetDataTable(string cmdText, MySqlParameter[] commandParameters, CommandType cmdType = CommandType.Text)
+        {
+            MySqlCommand cmd = new MySqlCommand();
+            MySqlConnection conn = GetConnection();
+            try
+            {
+                PrepareCommand(cmd, cmdType, cmdText, commandParameters, conn);
+                MySqlDataAdapter adapter = new MySqlDataAdapter();
+                adapter.SelectCommand = cmd;
+                DataTable dt = new DataTable();
+                adapter.Fill(dt);
+                cmd.Parameters.Clear();
+                return dt;
+            }
+            catch (Exception ex)
+            {
+                NLog.Error("执行Table查询失败", ex);
+                conn.Close();
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 用指定的数据库连接字符串执行一个命令并返回一个数据集的第一列
+        /// </summary>
+        /// <param name="cmdText">存储过程名称或者sql命令语句</param>
+        /// <param name="commandParameters">执行命令所用参数的集合</param>
+        /// <param name="cmdType">命令类型(存储过程, 文本, 等等)</param>
+        internal static object ExecuteScalar(string cmdText, MySqlParameter[] commandParameters, CommandType cmdType = CommandType.Text)
+        {
+            try
+            {
+                MySqlCommand cmd = new MySqlCommand();
+                PrepareCommand(cmd, cmdType, cmdText, commandParameters);
+                object val = cmd.ExecuteScalar();
+                cmd.Parameters.Clear();
+                return val;
+            }
+            catch (Exception ex)
+            {
+                NLog.Error("执行Scalar查询失败", ex);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 准备执行一个命令
+        /// </summary>
+        /// <param name="cmd">sql命令</param>
+        /// <param name="conn">OleDb连接</param>
+        /// <param name="trans">OleDb事务</param>
+        /// <param name="cmdType">命令类型例如 存储过程或者文本</param>
+        /// <param name="cmdText">命令文本,例如:Select * from Products</param>
+        /// <param name="cmdParms">执行命令的参数</param>
+        private static void PrepareCommand(MySqlCommand cmd, CommandType cmdType, string cmdText, MySqlParameter[] cmdParms, MySqlConnection connection = null)
+        {
+            if (connection == null)
+                connection = GetConnection();
+            cmd.Connection = connection;
+            cmd.CommandText = cmdText;
+            cmd.CommandType = cmdType;
+            if (cmdParms != null)
+            {
+                foreach (MySqlParameter parm in cmdParms)
+                    cmd.Parameters.Add(parm);
+            }
+        }
+    }
+}

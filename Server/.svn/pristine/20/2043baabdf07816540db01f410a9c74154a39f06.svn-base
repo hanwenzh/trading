@@ -1,0 +1,48 @@
+﻿using Common;
+using Model.Enum;
+using Newtonsoft.Json;
+using System;
+using System.Collections.Generic;
+using System.Runtime.Serialization;
+
+namespace Model.API
+{
+    [DataContract]
+    public class Result
+    {
+        private static Dictionary<string, string> Messages;
+
+        static Result()
+        {
+            Messages = EnumHelper.GetDescription(typeof(ApiResultEnum));
+        }
+
+        [DataMember]
+        public ApiResultEnum Code { get; set; }
+
+        [DataMember]
+        public string Message { get; set; }
+
+        [DataMember]
+        public object Data { get; set; }
+
+        public Result(ApiResultEnum code, object data  = null)
+        {
+            Code = code;
+            Message = Messages[code.ToString()];
+            Data = data;
+        }
+    }
+
+    [DataContract]
+    public class ResultLogin : Result
+    {
+        [DataMember]
+        public string Token { get; set; }
+
+        public ResultLogin(ApiResultEnum code, object data, string token) : base(code, data)
+        {
+            Token = token;
+        }
+    }
+}

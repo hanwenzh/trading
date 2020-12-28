@@ -1,0 +1,120 @@
+﻿using NetMQ;
+using NetMQ.Sockets;
+using System;
+using System.Collections.Generic;
+using System.Configuration;
+using System.Linq;
+using System.Text;
+using System.Threading;
+
+namespace HQ
+{
+    public class HQService
+    {
+        public static Dictionary<string, HQItem> HQs = new Dictionary<string, HQItem>();
+        private static readonly string query_server = ConfigurationManager.AppSettings["HQQueryServer"];
+        private static readonly string push_server = ConfigurationManager.AppSettings["HQPushServer"];
+        private static bool receive_push = false;
+
+        public static HQItem Get(string code)
+        {
+            if (HQs.ContainsKey(code))
+            {
+                return HQs[code];
+            }
+            else
+            {
+                List<HQItem> hqs = Query(code);
+                return hqs.Count > 0 ? hqs[0] : null;
+            }
+        }
+
+        public static List<HQItem> Get(List<string> codes)
+        {
+            var kvp = HQs.Where(h => codes.Contains(h.Key));
+            if (kvp.Count() == codes.Count)
+            {
+                return kvp.Select(h => h.Value).ToList();
+            }
+            else
+            {
+                List<HQItem> hqs = Query(string.Join(",", codes));
+                return hqs;
+            }
+        }
+
+        public static void SubscribeStart(string filter = "")
+        {
+            receive_push = true;
+            ParameterizedThreadStart pts = new ParameterizedThreadStart(Subscribe);
+            Thread thread = new Thread(pts);
+            thread.IsBackground = true;
+            thread.Start(filter);
+        }
+
+        public static void SubscribeStop()
+        {
+            receive_push = false;
+        }
+
+        private static void Subscribe(object filter)
+        {
+            using (var subscriber = new SubscriberSocket())
+            {
+                subscriber.Connect(push_server);
+                subscriber.Subscribe(filter.ToString(), Encoding.UTF8);
+                while (receive_push)
+                {
+                    string response = subscriber.ReceiveFrameString(Encoding.UTF8);
+                    string[] datas = response.Substring(1).Replace("}", "").Split('{');
+                    Deal(datas);
+                }
+            }
+        }
+
+        private static List<HQItem> Query(string codes)
+        {
+            try
+            {
+                using (var client = new RequestSocket())
+                {
+                    client.Connect(query_server);
+                    string cmd = string.Format("8001|{0}", codes);
+                    client.SendFrame(Encoding.UTF8.GetBytes(cmd));
+                    var response = client.ReceiveFrameString(Encoding.UTF8);
+                    if (response.StartsWith("80001|"))
+                    {
+                        string[] datas = response.Substring(7).Replace("}", "").Split('{');
+                        return Deal(datas);
+                    }
+                }
+            }
+            catch
+            { }
+            return new List<HQItem>();
+        }
+
+        private static List<HQItem> Deal(string[] datas)
+        {
+            List<HQItem> list = new List<HQItem>();
+            foreach (string data in datas)
+            {
+                if (string.IsNullOrEmpty(data))
+                    continue;
+                list.Add(new HQItem(data));
+            }
+
+            lock (HQs)
+            {
+                list.ForEach(h =>
+                {
+                    if (HQs.ContainsKey(h.Code))
+                        HQs[h.Code] = h;
+                    else
+                        HQs.Add(h.Code, h);
+                });
+            }
+            return list;
+        }
+    }
+}

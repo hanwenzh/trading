@@ -1,0 +1,30 @@
+﻿using Model.API;
+using Model.Enum;
+using MySQLSrv;
+using RapidTrade.Interface;
+using RedisSrv;
+using System;
+using System.ServiceModel;
+using System.ServiceModel.Activation;
+
+namespace RapidTrade.Service
+{
+    [AspNetCompatibilityRequirements(RequirementsMode = AspNetCompatibilityRequirementsMode.Allowed)]
+    public class Utility : IUtility
+    {
+        public Result Login(Model.MySQL.User model)
+        {
+            ApiResultEnum result = UserDA.Login(ref model);
+            if(result == ApiResultEnum.Success)
+            {
+                AuthorityRA.Add(Guid.NewGuid().ToString(), OperationContext.Current.IncomingMessageHeaders.Action, model.id.ToString());
+            }
+            return Result(result, model);
+        }
+
+        private Result Result(ApiResultEnum code, object data = null)
+        {
+            return new Result(code, data);
+        }
+    }
+}

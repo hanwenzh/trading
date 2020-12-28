@@ -1,0 +1,169 @@
+﻿using Model.Return;
+using MySQLSrv;
+using Trade.Interface;
+using System;
+using System.Collections.Generic;
+using System.ServiceModel.Activation;
+using Model.Search;
+using Model.DB;
+using Model.Enum;
+using Trade.Biz;
+using Model.Common;
+using System.Linq;
+using Model.API;
+using Common;
+
+namespace Trade.Service
+{
+    [AspNetCompatibilityRequirements(RequirementsMode = AspNetCompatibilityRequirementsMode.Allowed)]
+    public class Trade : Service, ITrade
+    {
+        public ResultLogCapital ListLogCapital(SearchCapitalLog model)
+        {
+            List<Model.DB.LogCapital> lst = LogCapitalDA.List(model);
+            return new ResultLogCapital(lst);
+        }
+
+        public ResultOrder ListOrder(SearchUnit model)
+        {
+            List<Model.DB.Order> lst = OrderDA.List(model);
+            return new ResultOrder(lst);
+        }
+
+        public ResultOrder ListOrderCancellable(int unit_id)
+        {
+            //查询可撤订单，成交数量+撤销数量<委托数量
+            return new ResultOrder(new List<Model.DB.Order>());
+        }
+
+        public ResultDeal ListDeal(SearchUnit model)
+        {
+            List<Model.DB.Deal> lst = DealDA.List(model);
+            return new ResultDeal(lst);
+        }
+
+        public ResultPosition ListPosition(int unit_id)
+        {
+            List<Model.DB.Position> lst = new List<Model.DB.Position>();
+            lst.Add(new Model.DB.Position()
+            {
+                code = "000001",
+                name = "平安银行",
+                count = 1000,
+                count_sellable = 1000,
+                price_cost = 12,
+                account_name = "平安0036普通",
+                unit_name = "823",
+                price_latest = 12.50m
+            });
+            return new ResultPosition(lst);
+        }
+
+        public ResultUnitCapital GetUnitCapital(int unit_id)
+        {
+            UnitCapital unitCapital = new UnitCapital()
+            {
+                available = 1000000,
+                scale = 1000000,
+                balance = 1000000,
+                value = 0,
+                assets = 1000000,
+                profit = 0
+            };
+            return new ResultUnitCapital(unitCapital);
+        }
+
+        public Result Order(Order model)
+        {
+            model.user_id = int.Parse(user_id);
+            model.platform = int.Parse(platform);
+            TradeBiz.Order(model);
+            return Result(ApiResultEnum.Success);
+        }
+
+        public Result OrderLimit(Order model)
+        {
+            return Result(ApiResultEnum.Success);
+        }
+
+        public Result Cancel(Cancel model)
+        {
+            return Result(ApiResultEnum.Success);
+        }
+
+        public ResultLong OrderAutoAdd(OrderAutoAdd model)
+        {
+            OrderAuto orderAuto = new OrderAuto()
+            {
+                id = FuncHelper.GetUniqueID(),
+                unit_id = model.unit_id,
+                account_id = model.account_id,
+                account_name = "",
+                code = model.code,
+                status_enum = StatusEnum.Forbidden,
+                type = model.type,
+                price_min = model.price_min,
+                price_max = model.price_max,
+                price_type = model.price_type,
+                count_min = model.count_min,
+                count_max = model.count_max,
+                count_total = model.count_total,
+                time_min = model.time_min,
+                time_max = model.time_max,
+
+
+                time_next_dt = DateTime.Now.AddSeconds(22),
+                time_prev_dt = DateTime.Now,
+                order_times = 1,
+                order_count = 12000,
+                result_prev = "委托成功",
+                operator_start = "张三"
+            };
+            OrderAutoBiz.OrderAutos.Add(orderAuto);
+            return Result(ApiResultEnum.Success, orderAuto.id);
+        }
+
+        public Result OrderAutoUpdate(OrderAutoUpdate model)
+        {
+            OrderAuto orderAuto = OrderAutoBiz.OrderAutos.FirstOrDefault(o => o.id == model.id);
+            if (orderAuto == null)
+                return Result(ApiResultEnum.Failed);
+            else
+            {
+                orderAuto.price_min = model.price_min;
+                orderAuto.price_max = model.price_max;
+                orderAuto.price_type = model.price_type;
+                orderAuto.count_min = model.count_min;
+                orderAuto.count_max = model.count_max;
+                orderAuto.count_total = model.count_total;
+                orderAuto.time_min = model.time_min;
+                orderAuto.time_max = model.time_max;
+                return Result(ApiResultEnum.Success);
+            }
+        }
+
+        public ResultOrderAuto ListOrderAuto(int unit_id)
+        {
+            List<OrderAuto> orderAutos = OrderAutoBiz.OrderAutos.Where(o => o.unit_id == unit_id).ToList();
+            return new ResultOrderAuto(orderAutos);
+        }
+
+        public Result OrderAutoDelete(OrderAutoAdd model)
+        {
+            int count = OrderAutoBiz.OrderAutos.RemoveAll(o => o.id == model.id && o.unit_id == model.unit_id);
+            return Result(count > 0 ? ApiResultEnum.Success : ApiResultEnum.Failed);
+        }
+
+        public Result OrderAutoUpdateStatus(Status model)
+        {
+            OrderAuto orderAuto = OrderAutoBiz.OrderAutos.FirstOrDefault(o => o.id == model.id);
+            if (orderAuto == null)
+                return Result(ApiResultEnum.Failed);
+            else
+            {
+                orderAuto.status_enum = model.status;
+                return Result(ApiResultEnum.Success);
+            }
+        }
+    }
+}

@@ -1,0 +1,26 @@
+﻿using Model.Enum;
+using MySQLSrv;
+using System;
+using System.Collections.Generic;
+
+namespace Trade.Biz
+{
+    public class BlockInfo
+    {
+        private static Dictionary<string, int> dic;
+
+        public static void Init()
+        {
+            dic = BlockInfoDA.List();
+        }
+
+        public static BlockEnum GetBlock(string code)
+        {
+            if (code.Length != 6)
+                return BlockEnum.unknow;
+            else if (!dic.ContainsKey(code.Substring(0, 3)))
+                return BlockEnum.unknow;
+            return (BlockEnum)dic[code.Substring(0, 3)];
+        }
+    }
+}

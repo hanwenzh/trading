@@ -1,0 +1,103 @@
+﻿using Model.Common;
+using MySql.Data.MySqlClient;
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Reflection;
+using System.Text.RegularExpressions;
+
+namespace MySQLSrv.Helper
+{
+    internal class DAHelper
+    {
+        /// <summary>
+        /// 根据sql语句和实体对象自动生成参数化查询SqlParameter列表
+        /// </summary>
+        /// <typeparam name="T">实体对象类型</typeparam>
+        /// <param name="sqlStr">sql语句</param>
+        /// <param name="obj">实体对象</param>
+        /// <returns>SqlParameter列表</returns>
+        internal static MySqlParameter[] CreateParams<T>(string sqlStr, T obj)
+        {
+            Regex reg = new Regex(@"@\S{1,}?(,|\s|;|--|\)|$)");
+            char[] filterChars = new char[] { ' ', ',', ';', '-', ')' };
+
+            List<MySqlParameter> parameters = new List<MySqlParameter>();
+            List<string> listStr = new List<string>();
+            Match mymatch = reg.Match(sqlStr);
+            while (mymatch.Success)
+            {
+                listStr.Add(mymatch.Value.TrimEnd(filterChars).TrimStart('@'));
+                mymatch = mymatch.NextMatch();
+            }
+            Type t = typeof(T);
+            PropertyInfo[] pinfo = t.GetProperties();
+            foreach (var item in listStr)
+            {
+                for (int i = 0; i < pinfo.Length; i++)
+                {
+                    if (!parameters.Exists(p => p.ParameterName == ("@" + item)) && item.Equals(pinfo[i].Name, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var val = pinfo[i].GetValue(obj, null);
+                        parameters.Add(new MySqlParameter() { ParameterName = "@" + item, Value = (val == null ? "" : val) });
+                        break;
+                    }
+                }
+            }
+            return parameters.ToArray();
+        }
+
+        /// <summary>  
+        /// DataTable转换成List
+        /// </summary>  
+        /// <typeparam name="T"></typeparam>  
+        /// <param name="dr"></param>  
+        /// <returns></returns>  
+        internal static List<T> GetListByDataTable<T>(DataTable dt) where T : new()
+        {
+            List<T> lst = new List<T>();
+            foreach (DataRow dr in dt.Rows)
+            {
+                lst.Add(GetModelByDataRow<T>(dr));
+            }
+            return lst;
+        }
+
+        /// <summary>  
+        /// 通过DataRow 填充实体  
+        /// </summary>  
+        /// <typeparam name="T"></typeparam>  
+        /// <param name="dr"></param>  
+        /// <returns></returns>  
+        internal static T GetModelByDataRow<T>(DataRow dr) where T : new()
+        {
+            T model = new T();
+            foreach (PropertyInfo pInfo in model.GetType().GetProperties())
+            {
+                if (pInfo.IsDefined(typeof(UnValueAttribute), false))
+                    continue;
+
+                string val = getValueByColumnName(dr, pInfo.Name);
+                if(pInfo.GetType() == typeof(int))
+                    pInfo.SetValue(model, (string.IsNullOrEmpty(val) ? 0 : int.Parse(val)), null);
+                else
+                    pInfo.SetValue(model, val, null);
+            }
+            return model;
+        }
+
+        //返回DataRow 中对应的列的值。
+        private static string getValueByColumnName(DataRow dr, string columnName)
+        {
+            int idx = dr.Table.Columns.IndexOf(columnName);
+            if (idx >= 0 && dr[idx] != DBNull.Value)
+            {
+                if (dr.Table.Columns[idx].DataType == typeof(DateTime))
+                    return DateTime.Parse(dr[columnName].ToString()).ToString("yyyy/MM/dd HH:mm:ss");
+                else
+                    return dr[columnName].ToString();
+            }
+            return "";
+        }
+    }
+}

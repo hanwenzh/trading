@@ -1,0 +1,14 @@
+﻿using System;
+
+namespace Common.SignalR
+{
+    public enum MessageTypeEnum
+    {
+        Subscribe_Success = 1,
+        Subscribe_Failed = 2,
+        User_Forbidden = 3,
+        User_Order_Status = 4,
+        Authorization_Changed = 5,
+        Password_Changed = 6
+    }
+}

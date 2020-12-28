@@ -1,0 +1,55 @@
+﻿using RedisSrv.Helper;
+using StackExchange.Redis;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace RedisSrv
+{
+    public class UserRA
+    {
+        public static string Get(string user_id, string field)
+        {
+            RedisValue rv = RedisBiz.User.HashGet(user_id, field);
+            if (rv.HasValue)
+                return rv.ToString();
+            return null;
+        }
+
+        public static bool Set(string user_id, string field, string value)
+        {
+            return RedisBiz.User.HashSet(user_id, field, value);
+        }
+
+        public static void Set(string user_id, Dictionary<string, string> items)
+        {
+            HashEntry[] entries = items.Select(kvp => new HashEntry(kvp.Key, kvp.Value)).ToArray();
+            RedisBiz.User.HashSet(user_id, entries);
+        }
+
+        public static bool SetExpire(string user_id)
+        {
+            return RedisBiz.User.KeyExpire(user_id, DateTime.Now.Date.AddHours(22));
+        }
+
+        public static bool Delete(string user_id, string field)
+        {
+            return RedisBiz.User.HashDelete(user_id, field);
+        }
+
+        public static bool Delete(string user_id)
+        {
+            return RedisBiz.User.KeyDelete(user_id);
+        }
+
+        public static bool Exists(string user_id)
+        {
+            return RedisBiz.User.KeyExists(user_id);
+        }
+
+        public static void FlushDatabase(List<int> databases)
+        {
+            RedisBiz.User.FlushDatabase(databases);
+        }
+    }
+}

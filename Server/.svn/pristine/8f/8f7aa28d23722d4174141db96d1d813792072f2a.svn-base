@@ -1,0 +1,30 @@
+﻿using Model.Enum;
+using Model.DB;
+using MySQLSrv.Helper;
+using System;
+using System.Collections.Generic;
+using System.Data;
+
+namespace MySQLSrv
+{
+    public class StatementDA
+    {
+        public static Statement Get4Unit(int unit_id)
+        {
+            string sql = "SELECT * FROM `statement` WHERE unit_id = " + unit_id + " ORDER BY id DESC LIMIT 1";
+            DataTable dt = MySQLHelper.GetDataTable(sql, null);
+            if (dt != null & dt.Rows.Count > 0)
+                return DAHelper.GetModelByDataRow<Statement>(dt.Rows[0]);
+            return null;
+        }
+
+        public static ApiResultEnum Add(Statement model)
+        {
+            string sql = "INSERT INTO statement(unit_id,date,capital_total,capital_stock_value,profit,fee,capital_inout) VALUES(@unit_id,CURRENT_DATE,@capital_total,@capital_stock_value,@profit,@fee,@capital_inout)";
+            int result = MySQLHelper.ExecuteNonQuery(sql, DAHelper.CreateParams(sql, model));
+            if (result > 0)
+                return ApiResultEnum.Success;
+            return ApiResultEnum.Failed;
+        }
+    }
+}

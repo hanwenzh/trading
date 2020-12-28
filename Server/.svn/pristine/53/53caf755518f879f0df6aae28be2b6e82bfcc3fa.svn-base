@@ -1,0 +1,35 @@
+﻿using RedisSrv.Helper;
+using StackExchange.Redis;
+using System;
+
+namespace RedisSrv
+{
+    public class TradeRA
+    {
+        public static string GetString(string key)
+        {
+            RedisValue rv = RedisBiz.Trade.StringGet(key);
+            if (rv.HasValue)
+                return rv.ToString();
+            return null;
+        }
+
+        public static bool SetInt(string key, int value)
+        {
+            return RedisBiz.Trade.StringSet(key, value);
+        }
+
+        public static int GetInt(string key)
+        {
+            RedisValue rv = RedisBiz.Trade.StringGet(key);
+            if (rv.HasValue)
+                return int.Parse(rv.ToString());
+            return 0;
+        }
+
+        public static bool SetString(string key, string value)
+        {
+            return RedisBiz.Trade.StringSet(key, value);
+        }
+    }
+}

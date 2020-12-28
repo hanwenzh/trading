@@ -1,0 +1,145 @@
+﻿using JY;
+using Common;
+using RedisSrv;
+using System;
+using System.Collections.Generic;
+using Model.DB;
+using Order = Model.DB.Order;
+
+namespace Trade.Biz
+{
+    public class JYBiz
+    {
+        private int account_id;
+        private JYService JY;
+
+        public JYBiz(int _account_id, string ip, int port)
+        {
+            account_id = _account_id;
+            JY = new JYService(ip, port);
+            JY.Order_Done += JYService_Order_Done;
+            JY.QueryCapital_Done += JYService_QueryCapital_Done;
+            JY.NewOrder += JY_NewOrder;
+            JY.OrderChanged += JY_OrderChanged;
+            JY.NewDeal += JY_NewDeal;
+            JY.QueryPosition_Done += JYService_QueryPosition_Done;
+        }
+
+        public void Dispose()
+        {
+            JY.Dispose();
+        }
+
+        public void Order(Order order)
+        {
+            string request_id = FuncHelper.GetUniqueID().ToString();
+            HQ.HQItem hQItem = HQ.HQService.Get(order.code);
+            order.account_id = account_id;
+            order.name = hQItem != null ? hQItem.Name : "";
+            order.time = DateTime.Now.FormatTime();
+            OrderRA.Add(order, "E_" + request_id);
+
+            JY.Order(new JY.Order(order.code, order.type, order.count, order.price, request_id));
+        }
+
+        private void JYService_Order_Done(object sender, Tuple<bool, string, string> e)
+        {
+            string key = "E_" + e.Item3;
+            Order order = new Order();
+            {
+                order.order_no = e.Item1 ? e.Item2 : "";
+                order.remark = e.Item1 ? "" : e.Item2;
+            }
+            OrderRA.UpdateDone(order, key);
+        }
+
+        private void JYService_QueryCapital_Done(object sender, Capital e)
+        {
+            string key = "A_" + account_id;
+            Account account = new Account()
+            {
+                capital_available = decimal.Parse(e.available),
+                capital_stock_value = decimal.Parse(e.value),
+                capital_total = decimal.Parse(e.assets),
+                capital_profit = decimal.Parse(e.profit),
+                synchronized_time = DateTime.Now.Format()
+            };
+            AccountRA.UpdateCapital(account, key);
+        }
+
+        private void JY_NewOrder(object sender, OrderItem e)
+        {
+            string key = "O_" + e.order_no;
+            bool exists = TradeRA.KeyExists(key);
+            Order order = new Order();
+            order.name = e.name;
+            order.deal_count = (int)decimal.Parse(e.deal_count);
+            order.cancel_count = (int)decimal.Parse(e.cancel_count);
+            order.status = e.status;
+            order.time = e.time.ToTime();
+            if(exists)
+            {
+                OrderRA.UpdateNew(order, key);
+            }
+            else
+            {
+                order.code = e.code;
+                order.price = decimal.Parse(e.price);
+                order.count = (int)decimal.Parse(e.code);
+                order.type = int.Parse(e.type);
+                order.order_no = e.order_no;
+                order.account_id = account_id;
+                OrderRA.Add(order, key);
+            }
+        }
+
+        private void JY_OrderChanged(object sender, OrderItem e)
+        {
+            string key = "O_" + e.order_no;
+            Order order = new Order();
+            order.deal_count = (int)decimal.Parse(e.deal_count);
+            order.cancel_count = (int)decimal.Parse(e.cancel_count);
+            order.status = e.status;
+            OrderRA.UpdateStatus(order, key);
+        }
+
+        private void JY_NewDeal(object sender, DealItem e)
+        {
+            Order order = OrderRA.Get("O_" + e.order_no);
+            string key = "D_" + e.deal_no + "_O_" + e.order_no + "_U_" + order.unit_id;
+            if (TradeRA.KeyExists(key))
+                return;
+
+            Deal deal = new Deal()
+            {
+                code = e.code,
+                name = e.name,
+                type = int.Parse(e.type),
+                count = (int)decimal.Parse(e.count),
+                money = decimal.Parse(e.money),
+                time = e.time.ToTime(),
+                deal_no = e.deal_no,
+                order_no = e.order_no,
+                price = decimal.Parse(e.price),
+                unit_id = order.unit_id,
+                account_id = account_id,
+                transferred = order.unit_id > 0 ? 0 : 1,
+            };
+            DealRA.Add(deal, key);
+
+            //更新成本价
+            decimal deal_average_price = (order.deal_average_price * order.deal_count + deal.price * deal.count) / (order.deal_count + deal.count);
+            OrderRA.UpdateAverageOrice(deal_average_price, "O_" + order.order_no);
+
+            //系统内成交
+            if (order.unit_id > 0)
+            {
+                TradeBiz.NewDeal(deal);
+            }
+        }
+
+        private void JYService_QueryPosition_Done(object sender, List<PositionItem> e)
+        {
+        }
+    }
+}

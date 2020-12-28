@@ -1,0 +1,53 @@
+﻿using Model.API;
+using Model.Common;
+using Model.Enum;
+using MySQLSrv;
+using Trade.Interface;
+using System;
+using System.Collections.Generic;
+using System.ServiceModel.Activation;
+
+namespace Trade.Service
+{
+    [AspNetCompatibilityRequirements(RequirementsMode = AspNetCompatibilityRequirementsMode.Allowed)]
+    public class Unit : Service, IUnit
+    {
+        public Result List()
+        {
+            List<Model.DB.Unit> lst = UnitDA.List();
+            return Result(ApiResultEnum.Success, lst);
+        }
+
+        public Result Add(Model.DB.Unit model)
+        {
+            int id = 0;
+            ApiResultEnum result = UnitDA.Add(model, ref id, user_id);
+            return Result(result, id);
+        }
+
+        public Result Update(Model.DB.Unit model)
+        {
+            return Result(UnitDA.Update(model));
+        }
+
+        public Result UpdateStatus(Status model)
+        {
+            return Result(UnitDA.UpdateStatus(model));
+        }
+
+        public Result UpdateRatioFreezing(Model.DB.Unit model)
+        {
+            return Result(UnitDA.UpdateRatioFreezing(model));
+        }
+
+        public Result CapitalInOut(Model.DB.LogCapital model)
+        {
+            return Result(LogCapitalDA.Add(model));
+        }
+
+        public Result Delete(Model.DB.Unit model)
+        {
+            return Result(UnitDA.Delete(model, user_id));
+        }
+    }
+}

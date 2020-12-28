@@ -1,0 +1,20 @@
+﻿using System;
+
+namespace Model.Enum
+{
+    public enum MessageTypeEnum
+    {
+        User_Forbidden = 1003,
+        User_Order_Status = 1004,
+        Authorization_Changed = 1005,
+        Password_Changed = 1006,
+        User_ForcedOffline = 1007,
+        Unit_Warning = 1101,
+        Unit_Recovery = 1102,
+        Unit_Close_Position = 1103,
+        Account_Warning = 1201,
+        Order_Failed = 2002,
+        Order_Canceled = 2003,
+        Order_Dealt = 2004,
+    }
+}

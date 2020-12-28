@@ -1,0 +1,154 @@
+﻿using Model.Enum;
+using System;
+using System.Runtime.Serialization;
+
+namespace Model.API
+{
+    [DataContract]
+    public class OrderAutoUpdate
+    {
+        [DataMember]
+        public long id { get; set; }
+
+        [DataMember]
+        public int unit_id { get; set; }
+
+        [DataMember]
+        public decimal price_min { get; set; }
+
+        [DataMember]
+        public decimal price_max { get; set; }
+
+        [DataMember]
+        public int count_min { get; set; }
+
+        [DataMember]
+        public int count_max { get; set; }
+
+        [DataMember]
+        public int time_min { get; set; }
+
+        [DataMember]
+        public int time_max { get; set; }
+
+        [DataMember]
+        public int price_type { get; set; }
+
+        public OrderPriceEnum price_type_enum
+        {
+            get { return (OrderPriceEnum)price_type; }
+            set { price_type = (int)value; }
+        }
+    }
+
+    [DataContract]
+    public class OrderAutoAdd : OrderAutoUpdate
+    {
+        [DataMember]
+        public int account_id { get; set; }
+
+        [DataMember]
+        public string code { get; set; }
+
+        [DataMember]
+        public string name { get; set; }
+
+        [DataMember]
+        public int count_total { get; set; }
+
+        [DataMember]
+        public int type { get; set; }
+
+        public int user_id { get; set; }
+
+        public int platform { get; set; }
+
+        [DataMember]
+        public string account_name { get; set; }
+
+        public OrderTypeEnum type_enum
+        {
+            get { return (OrderTypeEnum)type; }
+            set { type = (int)value; }
+        }
+    }
+
+    [DataContract]
+    public class OrderAuto : OrderAutoAdd
+    {
+        [DataMember]
+        public int status { get; set; }
+
+        /// <summary>
+        /// 已执行次数
+        /// </summary>
+        [DataMember]
+        public int order_times { get; set; }
+
+        /// <summary>
+        /// 已委托数量
+        /// </summary>
+        [DataMember] 
+        public int order_count { get; set; }
+
+        [DataMember]
+        public string time_next
+        {
+            get
+            {
+                return time_next_dt == DateTime.MinValue ? "" : time_next_dt.ToString("HH:mm:ss");
+            }
+            set
+            {
+                time_next_dt = DateTime.Parse(time_next);
+            }
+        }
+
+        [DataMember]
+        public string time_prev
+        {
+            get
+            {
+                return time_prev_dt == DateTime.MinValue ? "" : time_prev_dt.ToString("HH:mm:ss");
+            }
+            set
+            {
+                time_prev_dt = DateTime.Parse(time_prev);
+            }
+        }
+
+        /// <summary>
+        /// 下次执行时间
+        /// </summary>
+        public DateTime time_next_dt { get; set; }
+
+        /// <summary>
+        /// 上次执行时间
+        /// </summary>
+        public DateTime time_prev_dt { get; set; }
+
+        /// <summary>
+        /// 上次执行结果
+        /// </summary>
+        [DataMember]
+        public string result_prev { get; set; }
+
+        /// <summary>
+        /// 启动用户
+        /// </summary>
+        [DataMember]
+        public string operator_start { get; set; }
+
+        /// <summary>
+        /// 停止用户
+        /// </summary>
+        [DataMember]
+        public string operator_stop { get; set; }
+
+        public StatusAutoOrderEnum status_enum
+        {
+            get { return (StatusAutoOrderEnum)status; }
+            set { status = (int)value; }
+        }
+    }
+}

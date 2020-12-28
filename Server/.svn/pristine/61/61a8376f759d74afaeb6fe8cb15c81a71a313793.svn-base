@@ -1,0 +1,39 @@
+﻿using Model.API;
+using Model.Enum;
+using MySQLSrv;
+using RapidTrade.Interface;
+using RedisSrv;
+using System;
+using System.ServiceModel.Activation;
+
+namespace RapidTrade.Service
+{
+    [AspNetCompatibilityRequirements(RequirementsMode = AspNetCompatibilityRequirementsMode.Allowed)]
+    public class Utility : Service, IUtility
+    {
+        public ResultLogin Login(Model.MySQL.User model)
+        {
+            ApiResultEnum result = UserDA.Login(ref model, int.Parse(platform));
+            if(result == ApiResultEnum.Success)
+            {
+                string user_token = UserRA.Get(model.id.ToString(), "platform_" + platform);
+                if (string.IsNullOrWhiteSpace(user_token))
+                {
+                    user_token = Guid.NewGuid().ToString("N");
+                    UserRA.Set(model.id.ToString(), "platform_" + platform, user_token);
+                    UserRA.Set(model.id.ToString(), "status_trade", model.status_trade.ToString());
+                }
+                return ResultLogin(result, model, model.id + "-" + user_token);
+            }
+            else
+            {
+                return ResultLogin(result);
+            }
+        }
+
+        private ResultLogin ResultLogin(ApiResultEnum code, object data = null, string token = null)
+        {
+            return new ResultLogin(code, data, token);
+        }
+    }
+}

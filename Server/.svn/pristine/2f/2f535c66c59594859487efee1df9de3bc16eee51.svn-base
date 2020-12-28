@@ -1,0 +1,108 @@
+﻿using System;
+using System.Collections.Generic;
+using Model.DB;
+using Model.Enum;
+
+namespace RedisSrv
+{
+    public class AccountRA
+    {
+        public static Account Get(string  key)
+        {
+            Dictionary<string, string> dic = TradeRA.GetFields(key);
+            return new Account()
+            {
+                id = int.Parse(dic["id"]),
+                code = dic["code"],
+                name = dic["name"],
+                limit_no_buying = dic["limit_no_buying"],
+                limit_ratio_single = decimal.Parse(dic["limit_ratio_single"]),
+                limit_ratio_gem_single = decimal.Parse(dic["limit_ratio_gem_single"]),
+                limit_ratio_gem_total = decimal.Parse(dic["limit_ratio_gem_total"]),
+                ratio_capital_warning = decimal.Parse(dic["ratio_capital_warning"]),
+                capital_initial = decimal.Parse(dic["capital_initial"]),
+                status = int.Parse(dic["status"]),
+                status_order = int.Parse(dic["status_order"]),
+                created_by = int.Parse(dic["created_by"]),
+                capital_available = decimal.Parse(dic["capital_available"]),
+                capital_stock_value = decimal.Parse(dic["capital_stock_value"]),
+                capital_stock_value_gem = decimal.Parse(dic["capital_stock_value_gem"]),
+                capital_total = decimal.Parse(dic["capital_total"]),
+                capital_profit = decimal.Parse(dic["capital_profit"]),
+                synchronized_time = dic["synchronized_time"],
+            };
+        }
+
+        public static string GetName(string key)
+        {
+            return TradeRA.Get(key, "name");
+        }
+
+        public static void Add(Account account, string key)
+        {
+            Dictionary<string, string> items = new Dictionary<string, string>();
+            items.Add("id", account.id.ToString());
+            items.Add("code", account.code);
+            items.Add("name", account.name);
+            items.Add("limit_no_buying", account.limit_no_buying);
+            items.Add("limit_ratio_single", account.limit_ratio_single.ToString());
+            items.Add("limit_ratio_gem_single", account.limit_ratio_gem_single.ToString());
+            items.Add("limit_ratio_gem_total", account.limit_ratio_gem_total.ToString());
+            items.Add("ratio_capital_warning", account.ratio_capital_warning.ToString());
+            items.Add("capital_initial", account.capital_initial.ToString());
+            items.Add("status", account.status.ToString());
+            items.Add("status_order", account.status_order.ToString());
+            items.Add("created_by", account.created_by.ToString());
+            items.Add("capital_available", account.capital_available.ToString());
+            items.Add("capital_stock_value", account.capital_stock_value.ToString());
+            items.Add("capital_stock_value_gem", account.capital_stock_value_gem.ToString());
+            items.Add("capital_total", account.capital_total.ToString());
+            items.Add("capital_profit", account.capital_profit.ToString());
+            items.Add("synchronized_time", account.synchronized_time ?? "");
+            TradeRA.SetFields(key, items);
+            TradeRA.SetExpire(key);
+        }
+
+        public static void Update(Account account, string key)
+        {
+            Dictionary<string, string> items = new Dictionary<string, string>();
+            items.Add("code", account.code);
+            items.Add("name", account.name);
+            items.Add("limit_no_buying", account.limit_no_buying);
+            items.Add("limit_ratio_single", account.limit_ratio_single.ToString());
+            items.Add("limit_ratio_gem_single", account.limit_ratio_gem_single.ToString());
+            items.Add("limit_ratio_gem_total", account.limit_ratio_gem_total.ToString());
+            items.Add("ratio_capital_warning", account.ratio_capital_warning.ToString());
+            items.Add("capital_initial", account.capital_initial.ToString());
+            TradeRA.SetFields(key, items);
+        }
+
+        public static void UpdateCapitalStockValue(decimal value, string key)
+        {
+            Dictionary<string, string> items = new Dictionary<string, string>();
+            items["capital_stock_value_gem"] = value.ToString();
+            TradeRA.SetFields(key, items);
+        }
+
+        public static void UpdateCapital(Account account, string key)
+        {
+            Dictionary<string, string> items = new Dictionary<string, string>();
+            items.Add("capital_available", account.capital_available.ToString());
+            items.Add("capital_stock_value", account.capital_stock_value.ToString());
+            items.Add("capital_total", account.capital_total.ToString());
+            items.Add("capital_profit", account.capital_profit.ToString());
+            items.Add("synchronized_time", account.synchronized_time);
+            TradeRA.SetFields(key, items);
+        }
+
+        public static void UpdateStatus(StatusEnum status, string key)
+        {
+            TradeRA.Set(key, "status", ((int)status).ToString());
+        }
+
+        public static void UpdateStatusOrder(StatusOrderEnum status, string key)
+        {
+            TradeRA.Set(key, "status_order", ((int)status).ToString());
+        }
+    }
+}

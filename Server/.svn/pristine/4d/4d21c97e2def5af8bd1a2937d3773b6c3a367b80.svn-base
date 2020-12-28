@@ -1,0 +1,106 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+
+	<appSettings>
+		<add key="aspnet:UseTaskFriendlySynchronizationContext" value="true" />
+		<add key="SignalRUrl" value="http://localhost:8001" />
+		<add key="HQQueryServer" value="tcp://192.168.1.100:38366" />
+		<add key="HQPushServer" value="tcp://192.168.1.100:38367" />
+	</appSettings>
+	<connectionStrings>
+		<add name="MySQLConnection" connectionString="Server=192.168.1.100;Port=3306;Database=trade;Uid=root;Pwd=ydgljVR%q6pc" />
+		<add name="RedisIPPort" connectionString="192.168.1.100:6379" />
+		<add name="RedisPassword" connectionString="*^2&amp;^%^397dsd" />
+	</connectionStrings>
+	<system.web>
+		<compilation debug="true" targetFramework="4.7.2" />
+		<httpRuntime targetFramework="4.7.2" />
+	</system.web>
+	<system.serviceModel>
+		<extensions>
+			<behaviorExtensions>
+				<add name="TokenInspector" type="Trade.Code.TokenBehaviorExtensionElement, Trade" />
+				<add name="PlatformInspector" type="Trade.Code.PlatformBehaviorExtensionElement, Trade" />
+			</behaviorExtensions>
+		</extensions>
+		<behaviors>
+			<serviceBehaviors>
+				<behavior>
+					<!-- 为避免泄漏元数据信息，请在部署前将以下值设置为 false -->
+					<serviceMetadata httpGetEnabled="true" httpsGetEnabled="true" />
+					<!-- 要接收故障异常详细信息以进行调试，请将以下值设置为 true。在部署前设置为 false 以避免泄漏异常信息 -->
+					<serviceDebug includeExceptionDetailInFaults="true" />
+				</behavior>
+			</serviceBehaviors>
+			<endpointBehaviors>
+				<behavior name="tokenInspectorHttp">
+					<TokenInspector />
+					<webHttp defaultOutgoingResponseFormat="Json" />
+				</behavior>
+				<behavior name="platformInspectorHttp">
+					<PlatformInspector />
+					<webHttp defaultOutgoingResponseFormat="Json" />
+				</behavior>
+			</endpointBehaviors>
+		</behaviors>
+		<protocolMapping>
+			<add binding="basicHttpsBinding" scheme="https" />
+		</protocolMapping>
+		<serviceHostingEnvironment aspNetCompatibilityEnabled="true" multipleSiteBindingsEnabled="true" />
+		<services>
+			<service name="Trade.Service.User">
+				<endpoint behaviorConfiguration="tokenInspectorHttp" binding="webHttpBinding" contract="Trade.Interface.IUser" />
+			</service>
+			<service name="Trade.Service.Account">
+				<endpoint behaviorConfiguration="tokenInspectorHttp" binding="webHttpBinding" contract="Trade.Interface.IAccount" />
+			</service>
+			<service name="Trade.Service.AccountGroup">
+				<endpoint behaviorConfiguration="tokenInspectorHttp" binding="webHttpBinding" contract="Trade.Interface.IAccountGroup" />
+			</service>
+			<service name="Trade.Service.Unit">
+				<endpoint behaviorConfiguration="tokenInspectorHttp" binding="webHttpBinding" contract="Trade.Interface.IUnit" />
+			</service>
+			<service name="Trade.Service.Trade">
+				<endpoint behaviorConfiguration="tokenInspectorHttp" binding="webHttpBinding" contract="Trade.Interface.ITrade" />
+			</service>
+			<service name="Trade.Service.System">
+				<endpoint behaviorConfiguration="tokenInspectorHttp" binding="webHttpBinding" contract="Trade.Interface.ISystem" />
+			</service>
+			<service name="Trade.Service.Utility">
+				<endpoint behaviorConfiguration="platformInspectorHttp" binding="webHttpBinding" contract="Trade.Interface.IUtility" />
+			</service>
+		</services>
+	</system.serviceModel>
+	<system.webServer>
+		<modules runAllManagedModulesForAllRequests="true" />
+		<!--
+        若要在调试过程中浏览 Web 应用程序根目录，请将下面的值设置为 True。
+        在部署之前将该值设置为 False 可避免泄露 Web 应用程序文件夹信息。
+      -->
+		<directoryBrowse enabled="false" />
+	</system.webServer>
+	<runtime>
+		<assemblyBinding xmlns="urn:schemas-microsoft-com:asm.v1">
+			<dependentAssembly>
+				<assemblyIdentity name="System.Runtime.CompilerServices.Unsafe" publicKeyToken="b03f5f7f11d50a3a" culture="neutral" />
+				<bindingRedirect oldVersion="0.0.0.0-4.0.6.0" newVersion="4.0.6.0" />
+			</dependentAssembly>
+			<dependentAssembly>
+				<assemblyIdentity name="System.Buffers" publicKeyToken="cc7b13ffcd2ddd51" culture="neutral" />
+				<bindingRedirect oldVersion="0.0.0.0-4.0.3.0" newVersion="4.0.3.0" />
+			</dependentAssembly>
+			<dependentAssembly>
+				<assemblyIdentity name="System.Threading.Tasks.Extensions" publicKeyToken="cc7b13ffcd2ddd51" culture="neutral" />
+				<bindingRedirect oldVersion="0.0.0.0-4.2.0.1" newVersion="4.2.0.1" />
+			</dependentAssembly>
+			<dependentAssembly>
+				<assemblyIdentity name="Newtonsoft.Json" publicKeyToken="30ad4fe6b2a6aeed" culture="neutral" />
+				<bindingRedirect oldVersion="0.0.0.0-12.0.0.0" newVersion="12.0.0.0" />
+			</dependentAssembly>
+			<dependentAssembly>
+				<assemblyIdentity name="Microsoft.Owin" publicKeyToken="31bf3856ad364e35" culture="neutral" />
+				<bindingRedirect oldVersion="0.0.0.0-2.1.0.0" newVersion="2.1.0.0" />
+			</dependentAssembly>
+		</assemblyBinding>
+	</runtime>
+</configuration>

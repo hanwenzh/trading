@@ -1,0 +1,19 @@
+﻿using Model.Enum;
+using System;
+using System.ServiceModel;
+
+namespace Trade.Interface
+{
+    [ServiceContract(CallbackContract = typeof(INotice))]
+    public interface IMessage
+    {
+        [OperationContract(IsOneWay = true)]
+        void Subscribe(string token);
+    }
+
+    public interface INotice
+    {
+        [OperationContract(IsOneWay = true)]
+        void Notice(string msg);
+    }
+}

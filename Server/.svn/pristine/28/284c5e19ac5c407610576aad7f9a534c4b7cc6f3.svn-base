@@ -1,0 +1,201 @@
+﻿using Common;
+using HQ;
+using Model.DB;
+using MySQLSrv;
+using RedisSrv;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace Trade.Biz
+{
+    public class TradeBiz
+    {
+        private static Dictionary<int, JYBiz> jybizs = new Dictionary<int, JYBiz>();
+
+        public static void Open()
+        {
+            HQService.SubscribeStart();
+            var accounts = AccountDA.List().Where(a => a.id == 1);
+            foreach (Account account in accounts)
+            {
+                LoadAccount(account);
+            }
+
+            var positions = PositionDA.List();
+            foreach (Position position in positions)
+            {
+                LoadPosition(position);
+            }
+            HQService.Get(positions.Select(p => p.code));
+        }
+
+        public static void Close()
+        {
+            foreach(var kvp in jybizs)
+            {
+                kvp.Value.Dispose();
+            }
+            HQBiz.Save();
+            SaveOrder();
+            SaveDeal();
+            SavePosition();
+            SaveAccountCapital();
+        }
+
+        public static void LoadAccount(Account account, bool add = true)
+        {
+            if (!jybizs.ContainsKey(account.id))
+            {
+                jybizs.Add(account.id, new JYBiz(account.id, account.server_ip, account.server_port));
+            }
+            else
+            {
+                jybizs[account.id].Dispose();
+                jybizs[account.id] = new JYBiz(account.id, account.server_ip, account.server_port);
+            }
+
+            string key = "A_" + account.id;
+            if (add && TradeRA.KeyExists(key))
+                return;
+
+            if (add)
+            {
+                AccountRA.Add(account, key);
+            }
+            else
+            {
+                AccountRA.Update(account, key);
+            }
+        }
+
+        public static void LoadPosition(Position position)
+        {
+            string key = "P_" + position.code + "_A_" + position.account_id + "_U_" + position.unit_id;
+            if (TradeRA.KeyExists(key))
+                return;
+
+            position.count_sellable = position.count;
+            PositionRA.Add(position, key);
+        }
+
+        public static void Order(Order order)
+        {
+            jybizs[1].Order(order);
+        }
+
+        public static void NewDeal(Deal deal)
+        {
+            Dictionary<string, string> items = new Dictionary<string, string>();
+            string key = "D_" + deal.deal_no + "_O_" + deal.order_no + "_U_" + deal.unit_id;
+            //计算手续费，佣金最少收5元
+            deal.commission = Math.Max(Math.Round(deal.money * 0.0002m, 2), 5);
+            deal.management_fee = Math.Round(deal.money * 0.0001m, 2);
+            DealRA.UpdateFee(deal, key);
+
+            //更新持仓
+            decimal amount = deal.money + deal.commission;
+            items.Clear();
+            key = "P_" + deal.code + "_A_" + deal.account_id + "_U_" + deal.unit_id;
+            if (TradeRA.KeyExists(key))
+            {
+                Position position = PositionRA.Get(key);
+                if (deal.type == 0)
+                {
+                    position.price_cost = Math.Round((position.price_cost * position.count + amount) / (deal.count + position.count), 3);
+                    position.count = position.count + deal.count;
+                    position.price_cost_today_buy = Math.Round((amount + position.price_cost_today_buy * position.count_today_buy) / (deal.count + position.count_today_buy), 3);
+                    position.count_today_buy = deal.count + position.count_today_buy;
+                    PositionRA.UpdateBuy(position, key);
+                }
+                else
+                {
+                    position.price_cost = Math.Round((position.price_cost * position.count - amount) / (position.count - deal.count), 3);
+                    position.count = position.count - deal.count;
+                    position.count_sellable = position.count_sellable - deal.count;
+                    position.price_cost_today_sell = Math.Round((amount + position.price_cost_today_sell * position.count_today_sell) / (deal.count + position.count_today_sell), 3);
+                    position.count_today_sell = deal.count + position.count_today_sell;
+                    PositionRA.UpdateSell(position, key);
+                }
+            }
+            else
+            {
+                Position position = new Position()
+                {
+                    code = deal.code,
+                    name = deal.name,
+                    unit_id = deal.unit_id,
+                    account_id = deal.account_id
+                };
+                if (deal.type == 0)
+                {
+                    position.price_cost = position.price_cost_today_buy = amount / deal.count;
+                    position.price_cost_today_sell = position.count_sellable = position.count_today_sell = 0;
+                    position.count = position.count_today_buy = deal.count;
+                }
+                else
+                {
+                    position.price_cost = position.price_cost_today_sell = amount / deal.count;
+                    position.count = position.count_sellable = -deal.count;
+                    position.price_cost_today_buy = position.count_today_buy = 0;
+                    position.count_today_sell = deal.count;
+                }
+                PositionRA.Add(position, key);
+            }
+        }
+
+
+        public static void SaveOrder()
+        {
+            string[] keys = TradeRA.KeySearch("O_*");
+            foreach (string key in keys)
+            {
+                Order order = OrderRA.Get(key);
+                order.time = DateTime.Now.FormatDate() + " " + order.time;
+                OrderDA.Add(order);
+            }
+        }
+
+        public static void SaveDeal()
+        {
+            string[] keys = TradeRA.KeySearch("D_*");
+            foreach (string key in keys)
+            {
+                Deal deal = DealRA.Get(key);
+                deal.time = DateTime.Now.FormatDate() + " " + deal.time;
+                DealDA.Add(deal);
+            }
+        }
+
+        public static void SavePosition()
+        {
+            string[] keys = TradeRA.KeySearch("P_*");
+            foreach (string key in keys)
+            {
+                Position position = PositionRA.Get(key);
+                if (position.count == 0)
+                {
+                    if (position.id > 0)
+                        PositionDA.Delete(position.id);
+                }
+                else
+                {
+                    if (position.id > 0)
+                        PositionDA.Update(position);
+                    else
+                        PositionDA.Add(position);
+                }
+            }
+        }
+
+        public static void SaveAccountCapital()
+        {
+            string[] keys = TradeRA.KeySearch("A_*");
+            foreach (string key in keys)
+            {
+                Account account = AccountRA.Get(key);
+                AccountDA.UpdateCapital(account);
+            }
+        }
+    }
+}

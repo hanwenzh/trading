@@ -1,0 +1,10 @@
+﻿using System;
+
+namespace Model.Enum
+{
+    public enum PpriorityStrategyEnum
+    {
+        Natural = 1,
+        Available = 0
+    }
+}

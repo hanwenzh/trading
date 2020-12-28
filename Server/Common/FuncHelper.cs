@@ -1,0 +1,55 @@
+﻿using System;
+using System.Collections.Generic;
+
+namespace Common
+{
+    public static class FuncHelper
+    {
+        public static long GetUniqueID()
+        {
+            return DateTime.Now.Ticks;
+        }
+
+        public static string GetUniqueString()
+        {
+            return Guid.NewGuid().ToString("N");
+        }
+
+        public static string Format(this DateTime time)
+        {
+            return time.ToString("yyyy-MM-dd HH:mm:ss");
+        }
+
+        public static string FormatDate(this DateTime time)
+        {
+            return time.ToString("yyyy-MM-dd");
+        }
+
+        public static string FormatTime(this DateTime time)
+        {
+            return time.ToString("HH:mm:ss");
+        }
+
+        public static string ToDate(this string date)
+        {
+            return string.Format("{0}-{1}-{2}", date.Substring(0, date.Length - 4), date.Substring(date.Length - 4, 2), date.Substring(date.Length - 2));
+        }
+
+        public static string ToTime(this string time)
+        {
+            return string.Format("{0}:{1}:{2}", time.Substring(0, time.Length - 4), time.Substring(time.Length - 4, 2), time.Substring(time.Length - 2));
+        }
+
+        public static IEnumerable<TSource> DistinctBy<TSource, TKey>(this IEnumerable<TSource> source, Func<TSource, TKey> keySelector)
+        {
+            HashSet<TKey> seenKeys = new HashSet<TKey>();
+            foreach (TSource element in source)
+            {
+                if (seenKeys.Add(keySelector(element)))
+                {
+                    yield return element;
+                }
+            }
+        }
+    }
+}

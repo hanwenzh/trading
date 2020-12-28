@@ -1,0 +1,9 @@
+D:\SVN\Server\AutoClose\bin\Debug\AutoClose.exe.config
+D:\SVN\Server\AutoClose\bin\Debug\AutoClose.exe
+D:\SVN\Server\AutoClose\bin\Debug\AutoClose.pdb
+D:\SVN\Server\AutoClose\bin\Debug\NLog.dll
+D:\SVN\Server\AutoClose\bin\Debug\NLog.xml
+D:\SVN\Server\AutoClose\obj\Debug\AutoClose.csproj.CoreCompileInputs.cache
+D:\SVN\Server\AutoClose\obj\Debug\AutoClose.csproj.CopyComplete
+D:\SVN\Server\AutoClose\obj\Debug\AutoClose.exe
+D:\SVN\Server\AutoClose\obj\Debug\AutoClose.pdb

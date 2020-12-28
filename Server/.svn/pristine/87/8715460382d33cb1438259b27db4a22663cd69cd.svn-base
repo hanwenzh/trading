@@ -1,0 +1,238 @@
+﻿using JY;
+using Common;
+using RedisSrv;
+using System;
+using System.Collections.Generic;
+using Model.DB;
+using Order = Model.DB.Order;
+using Trade.Code;
+using Common.SignalR;
+
+namespace Trade.Biz
+{
+    public class JYBiz
+    {
+        private int account_id;
+        private JYService JY;
+
+        public JYBiz(int _account_id, string ip, int port)
+        {
+            account_id = _account_id;
+            JY = new JYService(ip, port);
+            JY.Order_Done += JYService_Order_Done;
+            JY.QueryCapital_Done += JYService_QueryCapital_Done;
+            JY.NewOrder += JY_NewOrder;
+            JY.OrderChanged += JY_OrderChanged;
+            JY.OrderCanceled += JY_OrderCanceled;
+            JY.NewDeal += JY_NewDeal;
+        }
+
+        public void Dispose()
+        {
+            JY.Dispose();
+        }
+
+        public void Order(Order order)
+        {
+            string request_id = FuncHelper.GetUniqueID().ToString();
+            order.account_id = account_id;
+            order.name = StockInfoBiz.GetStock(order.code).name;
+            order.time_dt = DateTime.Now;
+            OrderRA.Add(order, "O_" + request_id + "_T_" + order.trade_no + "_U_" + order.unit_id + "_F");
+
+            JY.Order(new JY.Order(order.code, order.type, order.count, order.price, request_id));
+        }
+
+        public void Cancel(string order_no)
+        {
+            JY.Cancel(order_no);
+        }
+
+        public List<PositionItem> QueryPosition()
+        {
+            return JY.QueryPosition();
+        }
+
+        private void JYService_Order_Done(object sender, Tuple<bool, string, string> e)
+        {
+            string[] keys = TradeRA.KeySearch("O_" + e.Item3 + "_*");
+            if (keys.Length == 0)
+                return;
+
+            Order order = OrderRA.Get(keys[0]);
+            //委托失败解除冻结
+            if (!e.Item1)
+            {
+                if (order.type_enum == Model.Enum.OrderTypeEnum.Buy)
+                {
+                    string key_unit = "U_" + order.unit_id;
+                    UnitRA.UpdateCapitalOrderBuy(-order.price * order.count, key_unit);
+                }
+                else if (order.type_enum == Model.Enum.OrderTypeEnum.Sell)
+                {
+                    string key_position = "P_" + order.code + "_A_" + order.account_id + "_U_" + order.unit_id;
+                    PositionRA.UpdateSellableOrderSell(order.count, key_position);
+                }
+                OrderRA.UpdateOrderFailed(e.Item3, e.Item2);
+                MessageBiz.Send(order.user_id.ToString(), MessageTypeEnum.Order_Failed, "[" + order.code + "]" + order.name + "委托失败。" + e.Item2);
+            }
+            else
+            {
+                OrderRA.UpdateOrderSuccess(e.Item3, order.unit_id, order.trade_no, e.Item2);
+            }
+        }
+
+        private void JYService_QueryCapital_Done(object sender, Capital e)
+        {
+            string key = "A_" + account_id;
+            Account account = new Account()
+            {
+                capital_available = decimal.Parse(e.available),
+                capital_stock_value = decimal.Parse(e.value),
+                capital_total = decimal.Parse(e.assets),
+                capital_profit = decimal.Parse(e.profit),
+                synchronized_time = DateTime.Now.Format()
+            };
+            AccountRA.UpdateCapital(account, key);
+        }
+
+        private void JY_NewOrder(object sender, OrderItem e)
+        {
+            Order order;
+            string[] keys = TradeRA.KeySearch("O_" + e.order_no + "_*");
+            if (keys.Length > 0)
+                order = OrderRA.Get(keys[0]);
+            else
+                order = new Order();
+            order.deal_count = (int)decimal.Parse(e.deal_count);
+            order.cancel_count = (int)decimal.Parse(e.cancel_count);
+            order.status = e.status;
+            order.time_dt = DateTime.Parse(e.date.ToDate() + " " + e.time.ToTime());
+            
+            if (keys.Length > 0)
+            {
+                MessageBiz.Send(order.user_id.ToString(), MessageTypeEnum.Order_Dealt, "[" + order.code + "]" + order.name + "已成交，成交数量：" + order.deal_count);
+                OrderRA.UpdateNew(order, keys[0]);
+            }
+            else
+            {
+                string key = "O_" + e.order_no + "_T_0_U_0";
+                order.trade_no = "0";
+                order.order_no = e.order_no;
+                order.name = e.name;
+                order.code = e.code;
+                order.price = decimal.Parse(e.price);
+                order.count = order.trade_count = (int)decimal.Parse(e.count);
+                order.type = int.Parse(e.type);
+                order.account_id = account_id;
+                OrderRA.Add(order, key);
+            }
+        }
+
+        private void JY_OrderChanged(object sender, OrderItem e)
+        {
+            string[] keys = TradeRA.KeySearch("O_" + e.order_no + "_*");
+            if (keys.Length > 0)
+            {
+                Order model = new Order()
+                {
+                    order_no = e.order_no,
+                    deal_count = (int)decimal.Parse(e.deal_count),
+                    cancel_count = (int)decimal.Parse(e.cancel_count),
+                    status = e.status
+                };
+                OrderRA.UpdateStatus(model, keys[0]);
+            }
+        }
+
+        private void JY_OrderCanceled(object sender, OrderItem e)
+        {
+            string[] keys = TradeRA.KeySearch("O_" + e.order_no + "_*");
+            if (keys.Length > 0)
+            {
+                Order model = new Order()
+                {
+                    order_no = e.order_no,
+                    deal_count = (int)decimal.Parse(e.deal_count),
+                    cancel_count = (int)decimal.Parse(e.cancel_count),
+                    status = e.status,
+                };
+                OrderRA.UpdateStatus(model, keys[0]);
+
+                //撤单成功取消冻结
+                Order order = OrderRA.Get(keys[0]);
+                MessageBiz.Send(order.user_id.ToString(), MessageTypeEnum.Order_Canceled, "[" + order.code + "]" + order.name + "撤单成功，撤单数量：" + model.cancel_count);
+                if (e.type == "0")
+                {
+                    string key_unit = "U_" + order.unit_id;
+                    UnitRA.UpdateCapitalOrderBuy(-order.price * model.cancel_count, key_unit);
+                }
+                else if (e.type == "1")
+                {
+                    string key_position = "P_" + order.code + "_A_" + order.account_id + "_U_" + order.unit_id;
+                    PositionRA.UpdateSellableOrderSell(order.cancel_count, key_position);
+                }
+            }
+        }
+
+        private void JY_NewDeal(object sender, DealItem e)
+        {
+            string[] keys = TradeRA.KeySearch("O_" + e.order_no + "_*");
+            if (keys.Length == 0)
+                return;
+
+            Order order = OrderRA.Get(keys[0]);
+            int unit_id = order == null ? 0 : order.unit_id;
+
+            string key = "D_" + e.deal_no + "_O_" + e.order_no + "_U_" + unit_id;
+            if (TradeRA.KeyExists(key))
+                return;
+
+            Deal deal = new Deal()
+            {
+                code = e.code,
+                name = e.name,
+                type = int.Parse(e.type),
+                count = (int)decimal.Parse(e.count),
+                money = decimal.Parse(e.money),
+                time_dt = DateTime.Parse(e.date.ToDate() + " " + e.time.ToTime()),
+                deal_no = e.deal_no,
+                order_no = e.order_no,
+                price = decimal.Parse(e.price),
+                unit_id = unit_id,
+                account_id = account_id,
+                transferred = unit_id > 0 ? 0 : 1,
+            };
+            DealRA.Add(deal, key);
+
+            //更新成交均价
+            DealAveragePrice(deal);
+
+            //系统内成交
+            if (order.unit_id > 0)
+            {
+                TradeBiz.NewDeal(deal, order.price);
+            }
+        }
+
+        //更新成交均价
+        private void DealAveragePrice(Deal deal)
+        {
+            string[] keys = TradeRA.KeySearch("D_*_O_" + deal.order_no + "_U_*");
+            decimal money = 0;
+            int count = 0;
+            foreach (string key in keys)
+            {
+                Deal dl = DealRA.Get(key);
+                money += dl.price * dl.count;
+                count += dl.count;
+            }
+            string[] keys_order = TradeRA.KeySearch("O_" + deal.order_no + "_*_U_" + deal.unit_id);
+            if (keys_order.Length > 0)
+            {
+                decimal deal_average_price = (money + deal.price * deal.count) / (count + deal.count);
+                OrderRA.UpdateAverageOrice(Math.Round(deal_average_price, 3), keys_order[0]);
+            }
+        }
+    }
+}

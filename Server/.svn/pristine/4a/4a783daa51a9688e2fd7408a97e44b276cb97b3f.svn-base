@@ -1,0 +1,42 @@
+﻿using Model.Return;
+using Model.Enum;
+using MySQLSrv;
+using Trade.Interface;
+using System;
+using System.Collections.Generic;
+using System.ServiceModel.Activation;
+
+namespace Trade.Service
+{
+    [AspNetCompatibilityRequirements(RequirementsMode = AspNetCompatibilityRequirementsMode.Allowed)]
+    public class AccountGroup : Service, IAccountGroup
+    {
+        public ResultAccountGroup List()
+        {
+            List<Model.DB.AccountGroup> lst = AccountGroupDA.List();
+            return new ResultAccountGroup(lst);
+        }
+
+        public ResultLong Add(Model.DB.AccountGroup model)
+        {
+            int id = 0;
+            ApiResultEnum result = AccountGroupDA.Add(model, ref id, user_id);
+            return Result(result, id);
+        }
+
+        public Result Update(Model.DB.AccountGroup model)
+        {
+            return Result(AccountGroupDA.Update(model));
+        }
+
+        public Result UpdateItems(Model.DB.AccountGroup model)
+        {
+            return Result(AccountGroupDA.UpdateItems(model));
+        }
+
+        public Result Delete(Model.DB.AccountGroup model)
+        {
+            return Result(AccountGroupDA.Delete(model, user_id));
+        }
+    }
+}

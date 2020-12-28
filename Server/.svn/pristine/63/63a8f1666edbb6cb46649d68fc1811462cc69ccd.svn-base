@@ -1,0 +1,54 @@
+﻿using Model.API;
+using Model.Enum;
+using Model.Return;
+using Model.Search;
+using System;
+using System.ServiceModel;
+using System.ServiceModel.Web;
+
+namespace Trade.Interface
+{
+    [ServiceContract]
+    public interface ISystem
+    {
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        ResultLogTrade ListLogTrade();
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        Result UpdateStatusTrade(StatusTradeEnum status);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        Result SignalRInit();
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        ResultAccountPosition ListAccountPosition(int account_id);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        Result PositionTransfer(PositionTransfer model);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        Result PositionMoveIn(PositionMoveIn model);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        ResultOrder ListOrder(SearchOrderStatus model);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        ResultDeal ListDeal(SearchDealStatus model);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        ResultPosition ListPosition();
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        Result Transfer(Transfer model);
+    }
+}

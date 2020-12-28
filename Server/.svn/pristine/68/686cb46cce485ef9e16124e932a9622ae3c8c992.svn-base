@@ -1,0 +1,52 @@
+﻿using Model.Return;
+using Model.Enum;
+using MySQLSrv;
+using Trade.Interface;
+using RedisSrv;
+using System;
+using System.ServiceModel.Activation;
+using JY;
+using Trade.Biz;
+
+namespace Trade.Service
+{
+    [AspNetCompatibilityRequirements(RequirementsMode = AspNetCompatibilityRequirementsMode.Allowed)]
+    public class Utility : Service, IUtility
+    {
+        public ResultLogin Login(Model.DB.User model)
+        {
+            JYBiz.Init();
+            //JYService jys = new JYService("192.168.1.101", 8899);
+            //string order_no;
+            //string msg = jys.Order(new Model.API.Order()
+            //{
+            //    code = "300112",
+            //    count = 2000,
+            //    price = 11.80m,
+            //    type = OrderTypeEnum.Buy
+            //}, out order_no);
+
+            
+
+
+            ApiResultEnum result = UserDA.Login(ref model, int.Parse(platform));
+            if(result == ApiResultEnum.Success)
+            {
+                string user_token = UserRA.Get(model.id.ToString(), "platform_" + platform);
+                if (string.IsNullOrWhiteSpace(user_token))
+                {
+                    user_token = Guid.NewGuid().ToString("N");
+                    UserRA.Set(model.id.ToString(), "platform_" + platform, user_token);
+                    UserRA.Set(model.id.ToString(), "name", model.name);
+                    UserRA.Set(model.id.ToString(), "status_trade", model.status_trade.ToString());
+                    UserRA.SetExpire(model.id.ToString());
+                }
+                return new ResultLogin(result, model, model.id + "-" + user_token);
+            }
+            else
+            {
+                return new ResultLogin(result, null, null);
+            }
+        }
+    }
+}

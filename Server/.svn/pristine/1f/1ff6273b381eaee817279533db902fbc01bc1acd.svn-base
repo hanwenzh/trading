@@ -1,0 +1,45 @@
+﻿using Model.Common;
+using Model.Enum;
+using System;
+using System.Runtime.Serialization;
+
+namespace Model.DB
+{
+    [DataContract]
+    public class LogCapital
+    {
+        [DataMember]
+        public int type { get; set; }
+
+        [DataMember]
+        public int action { get; set; }
+
+        [DataMember]
+        public decimal amount { get; set; }
+
+        [DataMember]
+        public string remark { get; set; }
+
+        [DataMember]
+        public int unit_id { get; set; }
+
+        [DataMember]
+        public string time { get; set; }
+
+        public int @operator { get; set; }
+
+        [UnValue]
+        public CapitalLogTypeEnum type_enum
+        {
+            get { return (CapitalLogTypeEnum)type; }
+            set { type = (int)value; }
+        }
+
+        [UnValue]
+        public ActionEnum action_enum
+        {
+            get { return (ActionEnum)action; }
+            set { action = (int)value; }
+        }
+    }
+}

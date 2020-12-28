@@ -1,0 +1,191 @@
+﻿using System;
+using System.Collections.Generic;
+using Model.DB;
+using Model.Enum;
+
+namespace RedisSrv
+{
+    public class UnitRA
+    {
+        public static Unit Get(string key)
+        {
+            Dictionary<string, string> dic = TradeRA.GetFields(key);
+            if (dic.Count == 0)
+                return null;
+
+            return new Unit()
+            {
+                id = int.Parse(dic["id"]),
+                code = dic["code"],
+                name = dic["name"],
+                user_id = int.Parse(dic["user_id"]),
+                account_group_id = int.Parse(dic["account_group_id"]),
+                capital_scale = decimal.Parse(dic["capital_scale"]),
+                ratio_freezing = decimal.Parse(dic["ratio_freezing"]),
+                ratio_management_fee = decimal.Parse(dic["ratio_management_fee"]),
+                ratio_commission = decimal.Parse(dic["ratio_commission"]),
+                ratio_software_fee = decimal.Parse(dic["ratio_software_fee"]),
+                limit_stock_count = int.Parse(dic["limit_stock_count"]),
+                limit_ratio_mbm_single = decimal.Parse(dic["limit_ratio_mbm_single"]),
+                limit_ratio_gem_single = decimal.Parse(dic["limit_ratio_gem_single"]),
+                limit_ratio_gem_total = decimal.Parse(dic["limit_ratio_gem_total"]),
+                limit_ratio_sme_single = decimal.Parse(dic["limit_ratio_sme_single"]),
+                limit_ratio_sme_total = decimal.Parse(dic["limit_ratio_sme_total"]),
+                limit_ratio_smg_total = decimal.Parse(dic["limit_ratio_smg_total"]),
+                limit_ratio_star_single = decimal.Parse(dic["limit_ratio_star_single"]),
+                limit_ratio_star_total = decimal.Parse(dic["limit_ratio_star_total"]),
+                ratio_warning = decimal.Parse(dic["ratio_warning"]),
+                ratio_close_position = decimal.Parse(dic["ratio_close_position"]),
+                limit_no_buying = dic["limit_no_buying"],
+                limit_order_price = int.Parse(dic["limit_order_price"]),
+                status = int.Parse(dic["status"]),
+                status_order = int.Parse(dic["status_order"]),
+                capital_balance = decimal.Parse(dic["capital_balance"]),
+                capital_freezing = decimal.Parse(dic["capital_freezing"]),
+                priority_strategy = int.Parse(dic["priority_strategy"]),
+                capital_stock_value = decimal.Parse(dic["capital_stock_value"]),
+                capital_stock_value_mbm = decimal.Parse(dic["capital_stock_value_mbm"]),
+                capital_stock_value_star = decimal.Parse(dic["capital_stock_value_star"]),
+                capital_stock_value_gem = decimal.Parse(dic["capital_stock_value_gem"]),
+                capital_stock_value_sme = decimal.Parse(dic["capital_stock_value_sme"]),
+                capital_profit = decimal.Parse(dic["capital_profit"]),
+            };
+        }
+
+        public static string GetName(int unit_id)
+        {
+            if (unit_id == 0)
+                return "";
+
+            return TradeRA.Get("U_" + unit_id, "name");
+        }
+
+        public static void Add(Unit unit, string key)
+        {
+            Dictionary<string, string> items = new Dictionary<string, string>();
+            items.Add("id", unit.id.ToString());
+            items.Add("code", unit.code);
+            items.Add("name", unit.name);
+            items.Add("user_id", unit.user_id.ToString());
+            items.Add("account_group_id", unit.account_group_id.ToString());
+            items.Add("capital_scale", unit.capital_scale.ToString());
+            items.Add("ratio_freezing", unit.ratio_freezing.ToString());
+            items.Add("ratio_management_fee", unit.ratio_management_fee.ToString());
+            items.Add("ratio_commission", unit.ratio_commission.ToString());
+            items.Add("ratio_software_fee", unit.ratio_software_fee.ToString());
+            items.Add("limit_stock_count", unit.limit_stock_count.ToString());
+            items.Add("limit_ratio_mbm_single", unit.limit_ratio_mbm_single.ToString());
+            items.Add("limit_ratio_gem_single", unit.limit_ratio_gem_single.ToString());
+            items.Add("limit_ratio_gem_total", unit.limit_ratio_gem_total.ToString());
+            items.Add("limit_ratio_sme_single", unit.limit_ratio_sme_single.ToString());
+            items.Add("limit_ratio_sme_total", unit.limit_ratio_sme_total.ToString());
+            items.Add("limit_ratio_smg_total", unit.limit_ratio_smg_total.ToString());
+            items.Add("limit_ratio_star_single", unit.limit_ratio_star_single.ToString());
+            items.Add("limit_ratio_star_total", unit.limit_ratio_star_total.ToString());
+            items.Add("ratio_warning", unit.ratio_warning.ToString());
+            items.Add("ratio_close_position", unit.ratio_close_position.ToString());
+            items.Add("limit_no_buying", unit.limit_no_buying);
+            items.Add("limit_order_price", unit.limit_order_price.ToString());
+            items.Add("status", unit.status.ToString());
+            items.Add("status_order", unit.status_order.ToString());
+            items.Add("capital_balance", unit.capital_balance.ToString());
+            items.Add("priority_strategy", unit.priority_strategy.ToString());
+            items.Add("capital_freezing", "0");
+            items.Add("capital_inout", "0");
+            items.Add("capital_stock_value", unit.capital_stock_value.ToString());
+            items.Add("capital_stock_value_mbm", unit.capital_stock_value_mbm.ToString());
+            items.Add("capital_stock_value_star", unit.capital_stock_value_star.ToString());
+            items.Add("capital_stock_value_gem", unit.capital_stock_value_gem.ToString());
+            items.Add("capital_stock_value_sme", unit.capital_stock_value_sme.ToString());
+            items.Add("capital_profit", unit.capital_profit.ToString());
+            TradeRA.SetFields(key, items);
+            TradeRA.SetExpire(key);
+        }
+
+        public static void Update(Unit unit, string key)
+        {
+            Dictionary<string, string> items = new Dictionary<string, string>();
+            items.Add("code", unit.code);
+            items.Add("name", unit.name);
+            items.Add("account_group_id", unit.account_group_id.ToString());
+            items.Add("ratio_management_fee", unit.ratio_management_fee.ToString());
+            items.Add("ratio_commission", unit.ratio_commission.ToString());
+            items.Add("ratio_software_fee", unit.ratio_software_fee.ToString());
+            items.Add("limit_stock_count", unit.limit_stock_count.ToString());
+            items.Add("limit_ratio_mbm_single", unit.limit_ratio_mbm_single.ToString());
+            items.Add("limit_ratio_gem_single", unit.limit_ratio_gem_single.ToString());
+            items.Add("limit_ratio_gem_total", unit.limit_ratio_gem_total.ToString());
+            items.Add("limit_ratio_sme_single", unit.limit_ratio_sme_single.ToString());
+            items.Add("limit_ratio_sme_total", unit.limit_ratio_sme_total.ToString());
+            items.Add("limit_ratio_smg_total", unit.limit_ratio_smg_total.ToString());
+            items.Add("limit_ratio_star_single", unit.limit_ratio_star_single.ToString());
+            items.Add("limit_ratio_star_total", unit.limit_ratio_star_total.ToString());
+            items.Add("ratio_warning", unit.ratio_warning.ToString());
+            items.Add("ratio_close_position", unit.ratio_close_position.ToString());
+            items.Add("limit_no_buying", unit.limit_no_buying);
+            items.Add("limit_order_price", unit.limit_order_price.ToString());
+            TradeRA.SetFields(key, items);
+        }
+
+        public static void UpdateStatus(StatusEnum status, string key)
+        {
+            TradeRA.Set(key, "status", ((int)status).ToString());
+        }
+
+        public static void UpdateUserID(string user_id, string key)
+        {
+            TradeRA.Set(key, "user_id", user_id);
+        }
+
+        public static void UpdateStatusOrder(StatusOrderEnum status, string key)
+        {
+            TradeRA.Set(key, "status_order", ((int)status).ToString());
+        }
+
+        public static void UpdatePriorityStrategy(int priority_strategy, string key)
+        {
+            TradeRA.Set(key, "priority_strategy", priority_strategy.ToString());
+        }
+
+        public static void UpdateRatioFreezing(decimal ratio_freezing, string key)
+        {
+            TradeRA.Set(key, "ratio_freezing", ratio_freezing.ToString());
+        }
+
+        public static void UpdateCapitalInOut(decimal delta, string key)
+        {
+            TradeRA.Increment(key, "capital_scale", (float)delta);
+            TradeRA.Increment(key, "capital_balance", (float)delta);
+            TradeRA.Increment(key, "capital_inout", (float)delta);
+        }
+
+        public static void UpdateCapitalOrderBuy(decimal delta, string key)
+        {
+            TradeRA.Increment(key, "capital_freezing", (float)delta);
+        }
+
+        public static void UpdateCapitalDealBuy(decimal delta, bool freezing, string key)
+        {
+            TradeRA.Increment(key, "capital_balance", -(float)delta);
+            if (freezing)
+                TradeRA.Increment(key, "capital_freezing", -(float)delta);
+        }
+
+        public static void UpdateCapitalDealSell(decimal delta, string key)
+        {
+            TradeRA.Increment(key, "capital_balance", (float)delta);
+        }
+
+        public static void UpdateCapitalStockValue(decimal[] values, string key)
+        {
+            Dictionary<string, string> items = new Dictionary<string, string>();
+            items.Add("capital_stock_value_mbm", values[0].ToString());
+            items.Add("capital_stock_value_star", values[1].ToString());
+            items.Add("capital_stock_value_gem", values[2].ToString());
+            items.Add("capital_stock_value_sme", values[3].ToString());
+            items.Add("capital_stock_value", values[4].ToString());
+            items.Add("capital_profit", values[5].ToString());
+            TradeRA.SetFields(key, items);
+        }
+    }
+}

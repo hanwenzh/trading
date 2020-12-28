@@ -1,0 +1,19 @@
+﻿using Model.API;
+using Model.Common;
+using Model.MySQL;
+using System;
+using System.Collections.Generic;
+using System.ServiceModel;
+using System.ServiceModel.Web;
+
+namespace Trade.Interface
+{
+    [ServiceContract]
+    [ServiceKnownType(typeof(List<LogCapital>))]
+    public interface IQuery
+    {
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        Result LogCapital(SearchCapitalLog model);
+    }
+}

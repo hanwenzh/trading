@@ -1,0 +1,321 @@
+﻿using Common;
+using HQ;
+using Model.DB;
+using MySQLSrv;
+using RedisSrv;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+
+namespace Trade.Biz
+{
+    public class TradeBiz
+    {
+        private static Dictionary<int, JYBiz> jybizs = new Dictionary<int, JYBiz>();
+        private static bool run = false;
+
+        public static void Open()
+        {
+            HQService.SubscribeStart();
+            var accounts = AccountDA.List().Where(a => a.id == 1);
+            foreach (Account account in accounts)
+            {
+                LoadAccount(account);
+            }
+
+            var units = UnitDA.List();
+            foreach (Unit unit in units)
+            {
+                LoadUnit(unit);
+            }
+
+            var positions = PositionDA.List();
+            foreach (Position position in positions)
+            {
+                LoadPosition(position);
+            }
+            HQService.Get(positions.Select(p => p.code));
+
+            if (!run)
+            {
+                run = true;
+                Thread thread = new Thread(Calculate_Value);
+                thread.IsBackground = true;
+                thread.Start();
+            }
+        }
+
+        public static void Close()
+        {
+            run = false;
+            foreach(var kvp in jybizs)
+            {
+                kvp.Value.Dispose();
+            }
+            HQBiz.Save();
+            SaveOrder();
+
+            Dictionary<int, decimal[]> dic = new Dictionary<int, decimal[]>();
+            SaveDeal(ref dic);
+            SavePosition();
+            SaveAccountCapital();
+            SaveUnitCapital(dic);
+        }
+
+        private static void Calculate_Value()
+        {
+            while (run)
+            {
+                Dictionary<int, decimal[]> dic = new Dictionary<int, decimal[]>();
+                string[] keys = TradeRA.KeySearch("P_*");
+                foreach (string key in keys)
+                {
+                    Position position = PositionRA.Get(key);
+                    HQItem hq = HQService.Get(position.code);
+                    decimal value = (hq.Last > 0 ? hq.Last : position.price_latest) * position.count;
+                    if (dic.ContainsKey(position.unit_id))
+                    {
+                        dic[position.unit_id][position.block] = dic[position.unit_id][position.block] + value;
+                        dic[position.unit_id][4] = dic[position.unit_id][4] + value;
+                    }
+                    else
+                    {
+                        decimal[] values = new decimal[5] { 0, 0, 0, 0, value };
+                        values[position.block] = value;
+                        dic.Add(position.unit_id, values);
+                    }
+                }
+                foreach(var kvp in dic)
+                {
+                    UnitRA.UpdateCapitalStockValue(kvp.Value, "U_" + kvp.Key);
+                }
+                Thread.Sleep(3000);
+            }
+        }
+
+        public static void LoadAccount(Account account, bool add = true)
+        {
+            if (!jybizs.ContainsKey(account.id))
+            {
+                jybizs.Add(account.id, new JYBiz(account.id, account.server_ip, account.server_port));
+            }
+            else
+            {
+                jybizs[account.id].Dispose();
+                jybizs[account.id] = new JYBiz(account.id, account.server_ip, account.server_port);
+            }
+
+            string key = "A_" + account.id;
+            if (add && TradeRA.KeyExists(key))
+                return;
+
+            if (add)
+            {
+                AccountRA.Add(account, key);
+            }
+            else
+            {
+                AccountRA.Update(account, key);
+            }
+        }
+
+        public static void LoadUnit(Unit unit, bool add = true)
+        {
+            string key = "U_" + unit.id;
+            if (add && TradeRA.KeyExists(key))
+                return;
+
+            if (add)
+            {
+                UnitRA.Add(unit, key);
+            }
+            else
+            {
+                UnitRA.Update(unit, key);
+            }
+        }
+
+        public static void LoadPosition(Position position)
+        {
+            string key = "P_" + position.code + "_A_" + position.account_id + "_U_" + position.unit_id;
+            if (TradeRA.KeyExists(key))
+                return;
+
+            position.count_sellable = position.count;
+            PositionRA.Add(position, key);
+        }
+
+        public static void Order(Order order)
+        {
+            jybizs[1].Order(order);
+        }
+
+        public static void LoadAccountGroupItems(AccountGroupItem item)
+        {
+            string key = "I_" + item.account_group_id + "_U_" + item.unit_id + "_A_" + item.account_id;
+            if (TradeRA.KeyExists(key))
+                return;
+
+            //AccountGroupItemRA.Add(item, key);
+        }
+
+        public static void NewDeal(Deal deal)
+        {
+            //计算手续费，佣金最少收5元
+            string key_unit = "U_" + deal.unit_id;
+            Unit unit = UnitRA.Get(key_unit);
+            deal.commission = Math.Max(Math.Round(deal.money * unit.ratio_commission, 2), 5);
+            deal.management_fee = Math.Round(deal.money * unit.ratio_management_fee, 2);
+
+            //卖单计算盈亏
+            string key_positon = "P_" + deal.code + "_A_" + deal.account_id + "_U_" + deal.unit_id;
+            Position position = PositionRA.Get(key_positon);
+            if (deal.type == 1 && position != null)
+                deal.profit = Math.Round((deal.price - position.price_cost) * deal.count, 2);
+
+            //更新手续费和盈亏
+            string key_deal = "D_" + deal.deal_no + "_O_" + deal.order_no + "_U_" + deal.unit_id;
+            DealRA.UpdateFee(deal, key_deal);
+
+            //更新单元余额和冻结
+            if (deal.type_enum == Model.Enum.OrderTypeEnum.Buy)
+                UnitRA.UpdateCapitalDealBuy(deal.order_price * deal.count, key_unit);
+            else if (deal.type_enum == Model.Enum.OrderTypeEnum.Sell)
+                UnitRA.UpdateCapitalDealSell(deal.price * deal.count, key_unit);
+
+            //更新持仓
+            decimal amount = deal.money + deal.commission;            
+            if (position != null)
+            {
+                if (deal.type == 0)
+                {
+                    position.price_cost = Math.Round((position.price_cost * position.count + amount) / (deal.count + position.count), 3);
+                    position.count = position.count + deal.count;
+                    position.price_cost_today_buy = Math.Round((amount + position.price_cost_today_buy * position.count_today_buy) / (deal.count + position.count_today_buy), 3);
+                    position.count_today_buy = deal.count + position.count_today_buy;
+                    PositionRA.UpdateBuy(position, key_positon);
+                }
+                else
+                {
+                    position.price_cost = Math.Round((position.price_cost * position.count - amount) / (position.count - deal.count), 3);
+                    position.count = position.count - deal.count;
+                    position.count_sellable = position.count_sellable - deal.count;
+                    position.price_cost_today_sell = Math.Round((amount + position.price_cost_today_sell * position.count_today_sell) / (deal.count + position.count_today_sell), 3);
+                    position.count_today_sell = deal.count + position.count_today_sell;
+                    PositionRA.UpdateSell(position, key_positon);
+                }
+            }
+            else
+            {
+                position = new Position()
+                {
+                    code = deal.code,
+                    name = deal.name,
+                    unit_id = deal.unit_id,
+                    account_id = deal.account_id,
+                    block_enum = BlockInfo.GetBlock(deal.code)
+                };
+                if (deal.type == 0)
+                {
+                    position.price_cost = position.price_cost_today_buy = Math.Round(amount / deal.count, 3);
+                    position.price_cost_today_sell = position.count_sellable = position.count_today_sell = 0;
+                    position.count = position.count_today_buy = deal.count;
+                }
+                else
+                {
+                    position.price_cost = position.price_cost_today_sell = Math.Round(amount / deal.count, 3);
+                    position.count = position.count_sellable = -deal.count;
+                    position.price_cost_today_buy = position.count_today_buy = 0;
+                    position.count_today_sell = deal.count;
+                }
+                PositionRA.Add(position, key_positon);
+            }
+        }
+
+
+        public static void SaveOrder()
+        {
+            string[] keys = TradeRA.KeySearch("O_*");
+            foreach (string key in keys)
+            {
+                Order order = OrderRA.Get(key);
+                order.time = DateTime.Now.FormatDate() + " " + order.time;
+                OrderDA.Add(order);
+            }
+        }
+
+        public static void SaveDeal(ref Dictionary<int, decimal[]> dic)
+        {
+            string[] keys = TradeRA.KeySearch("D_*");
+            foreach (string key in keys)
+            {
+                Deal deal = DealRA.Get(key);
+                deal.time = DateTime.Now.FormatDate() + " " + deal.time;
+                DealDA.Add(deal);
+                if (deal.unit_id > 0)
+                {
+                    if (dic.ContainsKey(deal.unit_id))
+                    {
+                        dic[deal.unit_id][0] = dic[deal.unit_id][0] + deal.commission;
+                        dic[deal.unit_id][1] = dic[deal.unit_id][1] + deal.profit;
+                    }
+                    else
+                        dic.Add(deal.unit_id, new decimal[2] { deal.commission, deal.profit });
+                }
+            }
+        }
+
+        public static void SavePosition()
+        {
+            string[] keys = TradeRA.KeySearch("P_*");
+            foreach (string key in keys)
+            {
+                Position position = PositionRA.Get(key);
+                if (position.count == 0)
+                {
+                    if (position.id > 0)
+                        PositionDA.Delete(position.id);
+                }
+                else
+                {
+                    position.price_latest = HQService.Get(position.code).Last;
+                    if (position.id > 0)
+                        PositionDA.Update(position);
+                    else
+                        PositionDA.Add(position);
+                }
+            }
+        }
+
+        public static void SaveAccountCapital()
+        {
+            string[] keys = TradeRA.KeySearch("A_*");
+            foreach (string key in keys)
+            {
+                Account account = AccountRA.Get(key);
+                AccountDA.UpdateCapital(account);
+            }
+        }
+
+        public static void SaveUnitCapital(Dictionary<int, decimal[]> dic)
+        {
+            string[] keys = TradeRA.KeySearch("U_*");
+            foreach (string key in keys)
+            {
+                Unit unit = UnitRA.Get(key);
+                UnitDA.UpdateCapital(unit);
+                Statement statement = new Statement()
+                {
+                    unit_id = unit.id,
+                    capital_total = unit.capital_total,
+                    capital_stock_value = unit.capital_stock_value,
+                    capital_inout = unit.capital_inout,
+                    fee = dic.ContainsKey(unit.id) ? dic[unit.id][0] : 0,
+                    profit = dic.ContainsKey(unit.id) ? dic[unit.id][1] : 0,
+                };
+                StatementDA.Add(statement);
+            }
+        }
+    }
+}

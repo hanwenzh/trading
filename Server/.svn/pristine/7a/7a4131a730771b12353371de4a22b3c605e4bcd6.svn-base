@@ -1,0 +1,97 @@
+﻿using Common;
+using Model.Common;
+using Model.Enum;
+using System;
+using System.Runtime.Serialization;
+
+namespace Model.DB
+{
+    [DataContract]
+    public class Order : Base
+    {
+        [DataMember]
+        public int type { get; set; }
+
+        [DataMember]
+        public decimal price { get; set; }
+
+        [DataMember]
+        public int count { get; set; }
+
+        public decimal deal_average_price { get; set; }
+
+        [DataMember]
+        public int deal_count { get; set; }
+
+        [DataMember]
+        public int cancel_count { get; set; }
+
+        [DataMember]
+        public string status { get; set; }
+
+        /// <summary>
+        /// 订单编号
+        /// </summary>
+        [DataMember]
+        public string trade_no { get; set; }
+
+        [DataMember]
+        public int trade_count { get; set; }
+        
+        /// <summary>
+        /// 委托编号
+        /// </summary>
+        [DataMember]
+        public string order_no { get; set; }
+
+        public int user_id { get; set; }
+
+        [DataMember]
+        public int unit_id { get; set; }
+
+        [DataMember]
+        public int account_id { get; set; }
+
+        [DataMember]
+        public string remark { get; set; }
+
+        [DataMember]
+        public int platform { get; set; }
+
+        [DataMember]
+        public string time { get { return time_dt.Format(); } set { } }
+
+        public DateTime time_dt { get; set; }
+
+        [DataMember]
+        public string account_name { get; set; }
+
+        [DataMember]
+        public string user_name { get; set; }
+
+        [DataMember]
+        public string unit_name { get; set; }
+
+        [UnValue]
+        public OrderTypeEnum type_enum
+        {
+            get { return (OrderTypeEnum)type; }
+            set { type = (int)value; }
+        }
+
+        public int state { get; set; }
+        [UnValue]
+        public OrderStatusEnum state_enum
+        {
+            get { return (OrderStatusEnum)state; }
+            set { state = (int)value; }
+        }
+
+        [UnValue]
+        public PlatformEnum platform_enum
+        {
+            get { return (PlatformEnum)platform; }
+            set { platform = (int)value; }
+        }
+    }
+}

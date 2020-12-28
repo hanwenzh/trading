@@ -1,0 +1,46 @@
+﻿using Model.Enum;
+using Model.DB;
+using MySQLSrv.Helper;
+using System;
+using System.Collections.Generic;
+using System.Data;
+using Model.Search;
+
+namespace MySQLSrv
+{
+    public class LogCapitalDA
+    {
+        public static List<LogCapital> List(SearchCapitalLog model)
+        {
+            string sql = "SELECT * FROM log_capital WHERE 1=1" + model.Where();
+            DataTable dt = MySQLHelper.GetDataTable(sql, null);
+            List<LogCapital> logCapitals = DAHelper.GetListByDataTable<LogCapital>(dt);
+            return logCapitals;
+        }
+
+        public static ApiResultEnum Add(LogCapital model)
+        {
+            List<string> sqls = new List<string>();
+            string type = model.type_enum == CapitalLogTypeEnum.Capital ? "capital_scale" : "bond";
+            if (model.action_enum == ActionEnum.Out)
+            {
+                string sql = string.Format("SELECT {0} FROM user WHERE unit_id={1}", type, model.unit_id);
+                object obj = MySQLHelper.ExecuteScalar(sql, null);
+                if (obj == null)
+                {
+                    return ApiResultEnum.Failed;
+                }
+                else if (model.amount > decimal.Parse(obj.ToString()))
+                {
+                    return ApiResultEnum.Negative_Amount;
+                }
+            }
+            string action = model.action_enum == ActionEnum.In ? "+" : "-";
+            sqls.Add(string.Format("UPDATE unit SET {0} = {1} {2} {3} WHERE id = {4}", type, type, action, model.amount, model.unit_id));
+            sqls.Add(string.Format("INSERT INTO log_capital(type,action,amount,remark,unit_id,operator) VALUES({0},{1},{2},'{3}',{4},{5})", model.type, model.action, model.amount, model.remark, model.unit_id, model.@operator));
+            if (MySQLHelper.ExecuteNonQuery(sqls))
+                return ApiResultEnum.Success;
+            return ApiResultEnum.Failed;
+        }
+    }
+}

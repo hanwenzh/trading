@@ -1,0 +1,21 @@
+﻿using MySQLSrv;
+using System;
+using System.Collections.Generic;
+
+namespace Trade.Biz
+{
+    public class Config
+    {
+        public static void Init()
+        {
+            Dictionary<string, string> dic = ConfigDA.List();
+            stamp_tax = decimal.Parse(dic["stamp_tax"]);
+            transfer_fee_sh = decimal.Parse(dic["transfer_fee_sh"]);
+            transfer_fee_sz = decimal.Parse(dic["transfer_fee_sz"]);
+        }
+
+        public static decimal stamp_tax { get; set; }
+        public static decimal transfer_fee_sh { get; set; }
+        public static decimal transfer_fee_sz { get; set; }
+    }
+}

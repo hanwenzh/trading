@@ -1,0 +1,122 @@
+﻿using Model.Common;
+using Model.Enum;
+using System;
+using System.Runtime.Serialization;
+
+namespace Model.DB
+{
+    [DataContract]
+    public class Account : Base
+    {
+        [DataMember]
+        public string server_ip { get; set; }
+
+        [DataMember]
+        public int server_port { get; set; }
+
+        [DataMember]
+        public string full_name { get; set; }
+
+        [DataMember]
+        public string remarks { get; set; }
+
+        [DataMember]
+        public string limit_no_buying { get; set; }
+
+        [DataMember]
+        public int status { get; set; }
+
+        [DataMember]
+        public int status_order { get; set; }
+
+        [DataMember]
+        public decimal ratio_commission { get; set; }
+
+        [DataMember]
+        public decimal limit_ratio_single { get; set; }
+
+        [DataMember]
+        public decimal limit_ratio_gem_single { get; set; }
+
+        [DataMember]
+        public decimal limit_ratio_gem_total { get; set; }
+
+        [DataMember]
+        public decimal ratio_capital_warning { get; set; }
+
+        /// <summary>
+        /// 总资产
+        /// </summary>
+        [DataMember]
+        public decimal capital_total { get; set; }
+
+        [DataMember]
+        [UnValue]
+        public decimal capital_cash { get; set; }
+
+        /// <summary>
+        /// 可用
+        /// </summary>
+        [DataMember]
+        public decimal capital_available { get; set; }
+
+        /// <summary>
+        /// 总市值
+        /// </summary>
+        [DataMember]
+        public decimal capital_stock_value { get; set; }
+
+        /// <summary>
+        /// 创业板总市值
+        /// </summary>
+        public decimal capital_stock_value_gem { get; set; }
+
+        /// <summary>
+        /// 系统内市值
+        /// </summary>
+        [DataMember]
+        [UnValue]
+        public decimal capital_stock_value_in { get; set; }
+
+        /// <summary>
+        /// 盈亏
+        /// </summary>
+        [DataMember]
+        public decimal capital_profit { get; set; }
+        
+        [DataMember]
+        public decimal capital_initial { get; set; }
+
+        [DataMember]
+        public decimal capital_inferior { get; set; }
+
+        [DataMember]
+        public decimal capital_priority { get; set; }
+
+        [DataMember]
+        public decimal capital_raobiao { get; set; }
+
+        [DataMember]
+        public decimal capital_raobiao_rate { get; set; }
+
+        [DataMember]
+        public string synchronized_time {get;set;}
+
+        [DataMember]
+        public int created_by { get; set; }
+
+        [UnValue]
+        public StatusEnum status_enum
+        {
+            get { return (StatusEnum)status; }
+            set { status = (int)value; }
+        }
+
+        [UnValue]
+        public StatusOrderEnum status_order_enum
+        {
+            get { return (StatusOrderEnum)status_order; }
+            set { status_order = (int)value; }
+        }
+    }
+}

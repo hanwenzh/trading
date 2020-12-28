@@ -1,0 +1,20 @@
+﻿using Model.DB;
+using Model.Enum;
+using System;
+using System.Collections.Generic;
+using System.Runtime.Serialization;
+
+namespace Model.Return
+{
+    [DataContract]
+    public class ResultUnit : Result
+    {
+        [DataMember]
+        public List<Unit> Data { get; set; }
+
+        public ResultUnit(ApiResultEnum code, List<Unit> data) : base(code)
+        {
+            Data = data;
+        }
+    }
+}

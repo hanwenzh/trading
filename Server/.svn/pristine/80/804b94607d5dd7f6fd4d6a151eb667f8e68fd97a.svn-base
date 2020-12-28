@@ -1,0 +1,28 @@
+﻿using Model.Common;
+using Model.Enum;
+using System;
+using System.Collections.Generic;
+using System.Runtime.Serialization;
+
+namespace Model.DB
+{
+    [DataContract]
+    public class AccountGroup : Base
+    {
+        [DataMember]
+        public int priority_strategy { get; set; }
+
+        [DataMember]
+        [UnValue]
+        public List<AccountGroupItem> items { get; set; }
+
+        [UnValue]
+        public PriorityStrategyEnum priority_strategy_enum
+        {
+            get { return (PriorityStrategyEnum)priority_strategy; }
+            set { priority_strategy = (int)value; }
+        }
+
+        public int created_by { get; set; }
+    }
+}

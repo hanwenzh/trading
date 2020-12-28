@@ -1,0 +1,16 @@
+﻿using System;
+
+namespace RedisSrv.Helper
+{
+    internal class RedisBiz
+    {
+        internal static RedisHelper User;
+        internal static RedisHelper Trade;
+
+        static RedisBiz()
+        {
+            User = new RedisHelper(8);
+            Trade = new RedisHelper((int)DateTime.Now.DayOfWeek);
+        }
+    }
+}

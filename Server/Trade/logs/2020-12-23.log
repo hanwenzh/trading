@@ -1,0 +1,3 @@
+2020-12-23 14:53:28.4705 ERROR  Ö´ÐÐ·Ç²éÑ¯Óï¾äÊ§°Ü  UnitDA.Update => MySQLHelper.ExecuteNonQuery => NLog.Error
+2020-12-23 14:55:12.1016 ERROR  Ö´ÐÐ·Ç²éÑ¯Óï¾äÊ§°Ü  UnitDA.Update => MySQLHelper.ExecuteNonQuery => NLog.Error
+2020-12-23 17:26:52.3585 ERROR  Ö´ÐÐTable²éÑ¯Ê§°Ü  OrderDA.List => MySQLHelper.GetDataTable => NLog.Error

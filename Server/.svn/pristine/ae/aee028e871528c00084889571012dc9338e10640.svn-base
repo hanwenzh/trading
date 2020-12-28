@@ -1,0 +1,37 @@
+﻿using System;
+
+namespace Common
+{
+    public static class FuncHelper
+    {
+        public static long GetUniqueID()
+        {
+            return DateTime.Now.Ticks;
+        }
+
+        public static string GetUniqueString()
+        {
+            return Guid.NewGuid().ToString("N");
+        }
+
+        public static string Format(this DateTime time)
+        {
+            return time.ToString("yyyy-MM-dd HH:mm:ss");
+        }
+
+        public static string FormatDate(this DateTime time)
+        {
+            return time.ToString("yyyy-MM-dd");
+        }
+
+        public static string FormatTime(this DateTime time)
+        {
+            return time.ToString("HH:mm:ss");
+        }
+
+        public static string ToTime(this string time)
+        {
+            return string.Format("{0}:{1}:{2}", time.Substring(0, time.Length - 4), time.Substring(time.Length - 4, 2), time.Substring(time.Length - 2));
+        }
+    }
+}

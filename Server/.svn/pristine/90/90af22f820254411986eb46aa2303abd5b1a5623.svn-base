@@ -1,0 +1,115 @@
+﻿using Model.Return;
+using Model.Common;
+using Model.Enum;
+using Model.DB;
+using MySQLSrv;
+using Trade.Interface;
+using RedisSrv;
+using System;
+using System.Collections.Generic;
+using System.ServiceModel.Activation;
+using Common.SignalR;
+using Trade.Biz;
+
+namespace Trade.Service
+{
+    [AspNetCompatibilityRequirements(RequirementsMode = AspNetCompatibilityRequirementsMode.Allowed)]
+    public class User : Service, IUser
+    {
+        public ResultUser List()
+        {
+            UserRoleEnum role = (UserRoleEnum)int.Parse(UserRA.Get(user_id.ToString(), "role"));
+            List<Model.DB.User> lst = UserDA.List(role == UserRoleEnum.Administrator ? 0 : user_id);
+            return new ResultUser(lst);
+        }
+
+        public ResultLong Add(Model.DB.User model)
+        {
+            int id = 0;
+            model.created_by = user_id;
+            ApiResultEnum result = UserDA.Add(model, ref id);
+            return Result(result, id);
+        }
+
+        public Result Update(Model.DB.User model)
+        {
+            return Result(UserDA.Update(model));
+        }
+
+        public Result Authority(Model.DB.User model)
+        {
+            MessageBiz.Send(model.id.ToString(), MessageTypeEnum.Authorization_Changed);
+            return Result(UserDA.Authority(model));
+        }
+
+        public Result UpdatePassword(UserPassword model)
+        {
+            model.id = user_id.ToString();
+            return Result(UserDA.UpdatePassword(model));
+        }
+
+        public Result ResetPassword(UserPassword model)
+        {
+            MessageBiz.Send(model.id.ToString(), MessageTypeEnum.Password_Changed);
+            return Result(UserDA.ResetPassword(model));
+        }
+
+        public Result UpdateStatus(StatusUser model)
+        {
+            if (model.status != StatusUserEnum.Allowed)
+                UserRA.Delete(model.id.ToString());
+            if (model.status != StatusUserEnum.Forbidden)
+                MessageBiz.Send(model.id.ToString(), MessageTypeEnum.User_Forbidden);
+            else if (model.status == StatusUserEnum.ForcedOffline)
+                MessageBiz.Send(model.id.ToString(), MessageTypeEnum.User_ForcedOffline);
+            return Result(UserDA.UpdateStatus(model));
+        }
+
+        public Result UpdateStatusOrder(StatusOrder model)
+        {
+            string status_order = ((int)model.status).ToString();
+            if (UserRA.Exists(model.id.ToString()))
+                UserRA.Set(model.id.ToString(), "status_order", status_order);
+            MessageBiz.Send(model.id.ToString(), MessageTypeEnum.User_Order_Status, status_order);
+            return Result(UserDA.UpdateStatusOrder(model));
+        }
+
+        public Result UpdateUnits(UserUnits model)
+        {
+            ApiResultEnum result = UnitDA.UpdateUserID(model);
+            if (result == ApiResultEnum.Success && TradeRA.GetStatusTrade() != 0)
+            {
+                string[] keys = TradeRA.KeySearch("U_*");
+                foreach (string key in keys)
+                {
+                    string _user_id = TradeRA.Get(key, "user_id");
+                    if (model.unit_ids.Contains(int.Parse(key.Substring(2))))
+                    {
+                        if (model.id != _user_id)
+                            UnitRA.UpdateUserID(model.id, key);
+                    }
+                    else
+                    {
+                        if (model.id == _user_id)
+                            UnitRA.UpdateUserID("0", key);
+                    }
+                }
+            }
+            return Result(result);
+        }
+
+        public Result Delete(Model.DB.User model)
+        {
+            UserRA.Delete(model.id.ToString());
+            MessageBiz.Send(model.id.ToString(), MessageTypeEnum.User_Forbidden);
+            model.created_by = user_id;
+            return Result(UserDA.Delete(model));
+        }
+
+        public Result Logout()
+        {
+            UserRA.Delete(user_id.ToString(), platform.ToString());
+            return Result(ApiResultEnum.Success);
+        }
+    }
+}

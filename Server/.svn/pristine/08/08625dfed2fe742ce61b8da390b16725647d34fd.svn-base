@@ -1,0 +1,14 @@
+﻿using Model.API;
+using System;
+using System.Collections.Generic;
+
+namespace Trade.Biz
+{
+    public class OrderAutoBiz
+    {
+        private static int _id = 1;
+        public static int id { get { return ++_id; } }
+
+        public static List<OrderAuto> OrderAutos = new List<OrderAuto>();
+    }
+}

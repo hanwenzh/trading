@@ -1,0 +1,27 @@
+﻿using RedisSrv.Helper;
+using StackExchange.Redis;
+using System;
+
+namespace RedisSrv
+{
+    public class AuthorityRA
+    {
+        public static string Get(string token, string platform)
+        {
+            RedisValue rv = RedisBiz.User.HashGet(token, platform);
+            if (rv.HasValue)
+                return rv.ToString();
+            return null;
+        }
+
+        public static bool Add(string token, string platform, string user_id)
+        {
+            return RedisBiz.User.HashSet(token, platform, user_id);
+        }
+
+        public static bool Delete(string token, string platform)
+        {
+            return RedisBiz.User.HashDelete(token, platform);
+        }
+    }
+}

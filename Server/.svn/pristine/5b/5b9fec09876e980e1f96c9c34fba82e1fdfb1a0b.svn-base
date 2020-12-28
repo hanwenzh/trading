@@ -1,0 +1,11 @@
+﻿using System;
+
+namespace Model.Enum
+{
+    public enum StatusTradeEnum
+    {
+        Allowed = 1,
+        Forbidden = 0,
+        NoBuying = -1
+    }
+}

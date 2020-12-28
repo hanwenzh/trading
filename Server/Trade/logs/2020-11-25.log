@@ -1,0 +1,12 @@
+2020-11-25 16:43:03.6135 ERROR  SignalR启动失败  RuntimeMethodHandle.InvokeMethod => Global.Application_Start => MessageService.Init
+2020-11-25 16:51:36.0089 ERROR  SignalR启动失败  RuntimeMethodHandle.InvokeMethod => Global.Application_Start => MessageService.Init
+2020-11-25 16:54:11.0190 ERROR  SignalR启动失败  Global.Application_Start => MessageService.Init => NLog.Error
+2020-11-25 16:55:35.6136 ERROR  SignalR启动失败  Global.Application_Start => MessageService.Init => NLog.Error
+2020-11-25 17:03:17.8574 ERROR  SignalR启动失败  Global.Application_Start => MessageService.Init => NLog.Error
+2020-11-25 17:05:01.7804 ERROR  SignalR启动失败  Global.Application_Start => MessageService.Init => NLog.Error
+2020-11-25 17:10:06.3774 ERROR  SignalR启动失败  Global.Application_Start => MessageService.Init => NLog.Error
+2020-11-25 17:14:48.9147 ERROR  SignalR启动失败  Global.Application_Start => MessageService.Init => NLog.Error
+2020-11-25 17:16:40.7565 INFO  主账户[888]资产已低于预警线。总资产：0  TradeBiz.Run => TradeBiz.RunAccountCapitalMonitor => NLog.Info
+2020-11-25 17:18:48.5371 INFO  主账户[888]资产已低于预警线。总资产：0  TradeBiz.Run => TradeBiz.RunAccountCapitalMonitor => NLog.Info
+2020-11-25 17:19:50.2528 INFO  主账户[888]资产已低于预警线。总资产：0  TradeBiz.Run => TradeBiz.RunAccountCapitalMonitor => NLog.Info
+2020-11-25 17:20:58.8397 ERROR  SignalR启动失败  Global.Application_Start => MessageService.Init => NLog.Error

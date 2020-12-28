@@ -1,0 +1,192 @@
+﻿using HQ;
+using Model.DB;
+using MySQLSrv;
+using RedisSrv;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace Trade.Biz
+{
+    public class TradeBiz
+    {
+        private static Dictionary<int, JYBiz> jybizs = new Dictionary<int, JYBiz>();
+
+        public static void Open()
+        {
+            HQService.SubscribeStart();
+            var accounts = AccountDA.List().Where(a => a.id == 1);
+            foreach (Account account in accounts)
+            {
+                LoadAccount(account);
+            }
+
+            var positions = PositionDA.List();
+            foreach (Position position in positions)
+            {
+                LoadPosition(position);
+            }
+            HQService.Get(positions.Select(p => p.code));
+        }
+
+        public static void Close()
+        {
+            HQBiz.Save();
+        }
+
+        public static void LoadAccount(Account account, bool add = true)
+        {
+            if (!jybizs.ContainsKey(account.id))
+            {
+                jybizs.Add(account.id, new JYBiz(account.id, account.server_ip, account.server_port));
+            }
+            else
+            {
+                jybizs[account.id].Dispose();
+                jybizs[account.id] = new JYBiz(account.id, account.server_ip, account.server_port);
+            }
+
+            string key = "A_" + account.id;
+            if (add && TradeRA.KeyExists(key))
+                return;
+            Dictionary<string, string> items = new Dictionary<string, string>();
+            items.Add("code", account.code);
+            items.Add("name", account.name);
+            items.Add("limit_no_buying", account.limit_no_buying);
+            items.Add("ratio_commission", account.ratio_commission.ToString());
+            items.Add("limit_ratio_single", account.limit_ratio_single.ToString());
+            items.Add("limit_ratio_gem_single", account.limit_ratio_gem_single.ToString());
+            items.Add("limit_ratio_gem_total", account.limit_ratio_gem_total.ToString());
+            items.Add("ratio_capital_warning", account.ratio_capital_warning.ToString());
+            items.Add("capital_initial", account.capital_initial.ToString());
+            if(add)
+            {
+                items.Add("status", account.status.ToString());
+                items.Add("status_trade", account.status_trade.ToString());
+                items.Add("created_by", account.created_by);
+            }
+            TradeRA.SetFields(key, items);
+            TradeRA.SetExpire(key);
+        }
+
+        public static void LoadPosition(Position position)
+        {
+            string key = "P_" + position.code + "_A_" + position.account_id + "_U_" + position.unit_id;
+            if (TradeRA.KeyExists(key))
+                return;
+
+            Dictionary<string, string> items = new Dictionary<string, string>();
+            items.Add("code", position.code);
+            items.Add("name", position.name);
+            items.Add("price_cost", position.price_cost.ToString());
+            items.Add("price_latest", position.price_latest.ToString());
+            items.Add("count", position.count.ToString());
+            items.Add("count_sellable", position.count.ToString());
+            items.Add("price_cost_today_buy", "0");
+            items.Add("price_cost_today_sell", "0");
+            items.Add("count_today_buy", "0");
+            items.Add("count_today_sell", "0");
+            TradeRA.SetFields(key, items);
+            TradeRA.SetExpire(key);
+        }
+
+        public static void NewDeal(Deal deal)
+        {
+            Dictionary<string, string> items = new Dictionary<string, string>();
+            string key = "D_" + deal.deal_no + "_O_" + deal.order_no + "_U_" + deal.unit_id;
+            //计算手续费
+            decimal commission = Math.Round(deal.money * 0.0002m, 2);
+            commission = Math.Max(commission, 5);
+            decimal management_fee = Math.Round(deal.money * 0.0001m, 2);
+            items.Add("commission", commission.ToString());
+            items.Add("management_fee", management_fee.ToString());
+            TradeRA.SetFields(key, items);
+
+            //更新持仓
+            decimal amount = deal.money + commission;
+            items.Clear();
+            key = "P_" + deal.code + "_A_" + deal.account_id + "_U_" + deal.unit_id;
+            if (TradeRA.KeyExists(key))
+            {
+                if (deal.type == 0)
+                {
+                    string[] vals = TradeRA.GetFields(key, new string[4] { "price_cost", "count", "price_cost_today_buy", "count_today_buy" });
+                    int count_now = int.Parse(vals[1]);
+                    int count_today_buy = int.Parse(vals[3]);
+                    items.Add("price_cost", Math.Round((decimal.Parse(vals[0]) * count_now + amount) / (deal.count + count_now), 3).ToString());
+                    items.Add("count", (count_now + deal.count).ToString());
+                    items.Add("price_cost_today_buy", Math.Round((amount + decimal.Parse(vals[2]) * count_today_buy) / (deal.count + count_today_buy), 3).ToString());
+                    items.Add("count_today_buy", (deal.count + count_today_buy).ToString());
+                }
+                else
+                {
+                    string[] vals = TradeRA.GetFields(key, new string[5] { "price_cost", "count", "price_cost_today_sell", "count_today_sell", "count_sellable" });
+                    int count_now = int.Parse(vals[1]);
+                    int count_today_sell = int.Parse(vals[3]);
+                    int count_sellable = int.Parse(vals[4]);
+                    items.Add("price_cost", Math.Round((decimal.Parse(vals[0]) * count_now - amount) / (count_now - deal.count), 3).ToString());
+                    items.Add("count", (count_now - deal.count).ToString());
+                    items.Add("count_sellable", (count_sellable - deal.count).ToString());
+                    items.Add("price_cost_today_sell", Math.Round((amount + decimal.Parse(vals[2]) * count_today_sell) / (deal.count + count_today_sell), 3).ToString());
+                    items.Add("count_today_sell", (deal.count + count_today_sell).ToString());
+                }
+            }
+            else
+            {
+                items.Add("code", deal.code);
+                items.Add("name", deal.name);
+                if (deal.type == 0)
+                {
+                    items.Add("price_cost", (amount / deal.count).ToString());
+                    items.Add("count", deal.count.ToString());
+                    items.Add("count_sellable", "0");
+                    items.Add("price_cost_today_buy", (amount / deal.count).ToString());
+                    items.Add("price_cost_today_sell", "0");
+                    items.Add("count_today_buy", deal.count.ToString());
+                    items.Add("count_today_sell", "0");
+                }
+                else
+                {
+                    items.Add("price_cost", (amount / deal.count).ToString());
+                    items.Add("count", (-deal.count).ToString());
+                    items.Add("count_sellable", (-deal.count).ToString());
+                    items.Add("price_cost_today_buy", "0");
+                    items.Add("price_cost_today_sell", (amount / deal.count).ToString());
+                    items.Add("count_today_buy", "0");
+                    items.Add("count_today_sell", deal.count.ToString());
+                }
+            }
+            TradeRA.SetFields(key, items);
+            TradeRA.SetExpire(key);
+        }
+
+
+        public static void SaveOrder()
+        {
+            string[] keys = TradeRA.KeySearch("O_*");
+            foreach(string key in keys)
+            {
+                Dictionary<string, string> dic = TradeRA.GetFields(key);
+                Order order = new Order()
+                {
+                    code = dic["code"],
+                    name = dic["name"],
+                    deal_count = (int)decimal.Parse(dic["deal_count"]),
+                    cancel_count = (int)decimal.Parse(dic["cancel_count"]),
+                    status = dic["status"],
+                    time = dic["time"],
+                    price = decimal.Parse(dic["price"]),
+                    count = (int)decimal.Parse(dic["count"]),
+                    type = int.Parse(dic["type"]),
+                    order_no = dic["order_no"],
+                    remark = dic["remark"],
+                    unit_id = int.Parse(dic["unit_id"]),
+                    user_id = int.Parse(dic["user_id"]),
+                    account_id = int.Parse(dic["account_id"]),
+                    deal_average_price = decimal.Parse(dic["deal_average_price"]),
+                    platform = int.Parse(dic["platform"])
+                };
+            }
+        }
+    }
+}

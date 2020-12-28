@@ -1,0 +1,19 @@
+﻿using MySql.Data.MySqlClient;
+using MySQLSrv.Helper;
+using System;
+
+namespace MySQLSrv
+{
+    public class LogActionDA
+    {
+        public static void Add(int _operator, string action)
+        {
+            MySqlParameter[] msps = {
+                new MySqlParameter("@operator", _operator),
+                new MySqlParameter("@action", action)
+            };
+            string sql = "INSERT INTO log_action(operator, action) VALUES(@operator, @action)";
+            MySQLHelper.ExecuteNonQuery(sql, msps);
+        }
+    }
+}

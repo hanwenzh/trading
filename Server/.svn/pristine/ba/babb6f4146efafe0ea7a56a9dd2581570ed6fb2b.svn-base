@@ -1,0 +1,26 @@
+﻿using Model.DB;
+using MySQLSrv.Helper;
+using System;
+using System.Collections.Generic;
+using System.Data;
+using Model.Search;
+
+namespace MySQLSrv
+{
+    public class OrderDA
+    {
+        public static List<Order> List<T>(T model) where T : ISearch
+        {
+            string sql = "SELECT * FROM v_order WHERE 1=1" + model.Where() + " ORDER BY id DESC";
+            DataTable dt = MySQLHelper.GetDataTable(sql, null);
+            List<Order> orders = DAHelper.GetListByDataTable<Order>(dt);
+            return orders;
+        }
+
+        public static void Add(Order model)
+        {
+            string sql = "INSERT INTO `order`(`code`,`name`,type,price,count,deal_average_price,deal_count,cancel_count,`status`,trade_no,order_no,user_id,unit_id,account_id,remark,platform,time_dt,state) VALUES(@code,@name,@type,@price,@count,@deal_average_price,@deal_count,@cancel_count,@status,@trade_no,@order_no,@user_id,@unit_id,@account_id,@remark,@platform,@time_dt,@state)";
+            MySQLHelper.ExecuteNonQuery(sql, DAHelper.CreateParams(sql, model));
+        }
+    }
+}

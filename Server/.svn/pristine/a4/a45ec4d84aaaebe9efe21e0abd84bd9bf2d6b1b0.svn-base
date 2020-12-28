@@ -1,0 +1,30 @@
+﻿using System;
+using System.Runtime.Serialization;
+
+namespace Model.DB
+{
+    [DataContract]
+    public class Statement
+    {
+        [DataMember]
+        public int unit_id { get; set; }
+
+        [DataMember]
+        public string date { get; set; }
+
+        [DataMember]
+        public decimal capital_total { get; set; }
+
+        [DataMember]
+        public decimal capital_stock_value { get; set; }
+
+        [DataMember]
+        public decimal profit { get; set; }
+
+        [DataMember]
+        public decimal fee { get; set; }
+
+        [DataMember]
+        public decimal capital_inout { get; set; }
+    }
+}

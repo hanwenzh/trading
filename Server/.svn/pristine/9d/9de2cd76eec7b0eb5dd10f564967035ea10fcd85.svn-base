@@ -1,0 +1,12 @@
+﻿using System;
+using System.Runtime.Serialization;
+
+namespace Model.Search
+{
+    [DataContract]
+    public class SearchAccountPosition
+    {
+        [DataMember]
+        public int account_id { get; set; }
+    }
+}

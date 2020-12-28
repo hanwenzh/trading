@@ -1,0 +1,8 @@
+2020-12-02 10:40:48.2453 ERROR  SignalR启动失败  Global.Application_Start => MessageService.Init => NLog.Error
+2020-12-02 10:41:27.9702 ERROR  SignalR启动失败  Global.Application_Start => MessageService.Init => NLog.Error
+2020-12-02 10:42:49.6590 INFO  单元[1w]资产已低于预警线，被禁止买入。总资产：0.00  TradeBiz.Run => TradeBiz.RunUnitCapitalMonitor => NLog.Info
+2020-12-02 10:42:49.6810 INFO  单元[989]资产已低于预警线，被禁止买入。总资产：0.00  TradeBiz.Run => TradeBiz.RunUnitCapitalMonitor => NLog.Info
+2020-12-02 10:42:49.6810 INFO  单元[839]资产已低于预警线，被禁止买入。总资产：0.00  TradeBiz.Run => TradeBiz.RunUnitCapitalMonitor => NLog.Info
+2020-12-02 10:42:49.7009 INFO  单元[836]资产已低于预警线，被禁止买入。总资产：0.00  TradeBiz.Run => TradeBiz.RunUnitCapitalMonitor => NLog.Info
+2020-12-02 10:42:49.7138 INFO  单元[code333]资产已低于预警线，被禁止买入。总资产：0.00  TradeBiz.Run => TradeBiz.RunUnitCapitalMonitor => NLog.Info
+2020-12-02 11:25:52.2884 ERROR  SignalR启动失败  Global.Application_Start => MessageService.Init => NLog.Error

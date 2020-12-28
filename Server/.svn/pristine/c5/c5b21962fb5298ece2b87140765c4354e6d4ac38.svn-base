@@ -1,0 +1,211 @@
+﻿using Model.Return;
+using MySQLSrv;
+using Trade.Interface;
+using System;
+using System.Collections.Generic;
+using System.ServiceModel.Activation;
+using Model.Search;
+using Model.DB;
+using Model.Enum;
+using Trade.Biz;
+using Model.Common;
+using Model.API;
+using Common;
+using RedisSrv;
+using HQ;
+using System.Linq;
+
+namespace Trade.Service
+{
+    [AspNetCompatibilityRequirements(RequirementsMode = AspNetCompatibilityRequirementsMode.Allowed)]
+    public class Trade : Service, ITrade
+    {
+        public ResultLogCapital ListLogCapital(SearchCapitalLog model)
+        {
+            List<LogCapital> lst = LogCapitalDA.List(model);
+            return new ResultLogCapital(lst);
+        }
+
+        public ResultOrder ListOrder(SearchUnit model)
+        {
+            IEnumerable<Order> lst = new List<Order>();
+            if (model.from_dt.Date < DateTime.Now.Date)
+                lst = lst.Union(OrderDA.List(model));
+            if (model.from_dt.Date <= DateTime.Now.Date && model.to_dt.Date >= DateTime.Now.Date)
+                lst = lst.Union(OrderRA.List4Unit(model.unit_id));
+
+            DataBiz.OrderMerge(ref lst);
+            return new ResultOrder(lst.ToList());
+        }
+
+        public ResultOrder ListOrderCancellable(int unit_id)
+        {
+            IEnumerable<Order> lst = OrderRA.List4Unit(unit_id);
+            lst = lst.Where(o => o.deal_count + o.cancel_count < o.count).ToList();
+            DataBiz.OrderMerge(ref lst);
+            return new ResultOrder(lst.ToList());
+        }
+
+        public ResultOrder ListSubOrder(string trade_no)
+        {
+            List<Order> lst = OrderRA.List4Trade(trade_no);
+            return new ResultOrder(lst);
+        }
+
+        public ResultDeal ListDeal(SearchUnit model)
+        {
+            IEnumerable<Deal> lst = new List<Deal>();
+            if (model.from_dt.Date < DateTime.Now.Date)
+                lst = lst.Union(DealDA.List(model));
+            if (model.from_dt.Date <= DateTime.Now.Date && model.to_dt.Date >= DateTime.Now.Date)
+                lst = lst.Union(DealRA.List4Unit(model.unit_id));
+            return new ResultDeal(lst.OrderBy(o => o.time_dt).ToList());
+        }
+
+        public ResultPosition ListPosition(int unit_id)
+        {
+            IEnumerable<Position> list = PositionRA.List4Unit(unit_id);
+            DataBiz.PositionMerge(ref list);
+            return new ResultPosition(list.ToList());
+        }
+
+        public ResultPosition ListSubPosition(Position model)
+        {
+            List<Position> lst = PositionRA.List4UnitCode(model);
+            return new ResultPosition(lst);
+        }
+
+        public ResultUnitCapital GetUnitCapital(int unit_id)
+        {
+            Model.DB.Unit unit = UnitRA.Get("U_" + unit_id);
+            UnitCapital unitCapital = new UnitCapital()
+            {
+                available = unit.capital_available,
+                scale = unit.capital_scale,
+                balance = unit.capital_balance,
+                value = unit.capital_stock_value,
+                assets = unit.capital_total,
+                profit = unit.capital_profit
+            };
+            return new ResultUnitCapital(unitCapital);
+        }
+
+        public ResultLong Count(Order model)
+        {
+            model.user_id = user_id;
+            ApiResultEnum result = LimitBiz.CheckStatus(model);
+            if (result != ApiResultEnum.Success && result != ApiResultEnum.Order_Count_Error)
+                return Result(ApiResultEnum.Success, 0);
+
+            int unit_count = LimitBiz.GetUnitCount(model);
+            if (unit_count == 0)
+                return Result(ApiResultEnum.Success, 0);
+
+            List<int> order_items;
+            int account_count = 0;
+            if (model.account_id == 0)
+                order_items = AccountGroupRA.List4Unit(model.unit_id).Select(g => g.account_id).ToList();
+            else
+                order_items = new List<int> { model.account_id };
+            foreach (int account_id in order_items)
+            {
+                model.account_id = account_id;
+                account_count += LimitBiz.GetAccountCount(model);
+            }
+            return Result(ApiResultEnum.Success, Math.Min(unit_count, account_count));
+        }
+
+        public Result Order(Order model)
+        {
+            model.user_id = user_id;
+            model.platform = platform;
+
+            return Result(TradeBiz.Order(model));
+        }
+
+        public Result OrderLimit(Order model)
+        {
+            if (model.account_id == 0)
+                return Result(ApiResultEnum.InvalidRequest);
+            model.user_id = user_id;
+            model.platform = platform;
+
+            return Result(TradeBiz.Order(model));
+        }
+
+        public Result Cancel(Cancel model)
+        {
+            model.order_nos.ForEach(order_no =>
+            {
+                List<Order> orders = OrderRA.List4Trade(order_no);
+                foreach (Order order in orders)
+                {
+                    if (model.unit_id == order.unit_id && !string.IsNullOrWhiteSpace(order.order_no) && order.cancel_count == 0 && order.deal_count < order.count)
+                        TradeBiz.Cancel(order.account_id, order.order_no);
+                }
+            });
+            return Result(ApiResultEnum.Success);
+        }
+
+        public ResultLong OrderAutoAdd(OrderAutoAdd model)
+        {
+            HQItem hq = HQService.Get(model.code);
+            Order order = new Order()
+            {
+                user_id = user_id,
+                unit_id = model.unit_id,
+                code = model.code,
+                price = hq.Last,
+                count = model.count_total,
+                type = model.type,
+                platform = platform
+            };
+
+            ApiResultEnum result = LimitBiz.CheckStatus(order);
+            if (result != ApiResultEnum.Success)
+                return Result(result, 0);
+            result = LimitBiz.CheckUnit(order);
+            if (result != ApiResultEnum.Success)
+                return Result(result, 0);
+
+            model.id = FuncHelper.GetUniqueID();
+            model.user_id = user_id;
+            model.platform = platform;
+            if (model.account_id > 0)
+            {
+                string key_account = "A_" + model.account_id;
+                Model.DB.Account account = AccountRA.Get(key_account);
+                model.account_name = account.name;
+            }
+            else
+                model.account_name = "";
+            string key = "S_" + model.id + "_U_" + model.unit_id + "_D_0";
+            OrderAutoRA.Add(model, key);
+            return Result(ApiResultEnum.Success, model.id);
+        }
+
+        public Result OrderAutoUpdate(OrderAutoUpdate model)
+        {
+            bool result = OrderAutoRA.Update(model);
+            return Result(result ? ApiResultEnum.Success : ApiResultEnum.Failed);
+        }
+
+        public ResultOrderAuto ListOrderAuto(int unit_id)
+        {
+            List<OrderAuto> orderAutos = OrderAutoRA.List4Unit(unit_id);
+            return new ResultOrderAuto(orderAutos);
+        }
+
+        public Result OrderAutoDelete(OrderAutoUpdate model)
+        {
+            bool result = OrderAutoRA.Delete(model);
+            return Result(result ? ApiResultEnum.Success : ApiResultEnum.Failed) ;
+        }
+
+        public Result OrderAutoUpdateStatus(Status model)
+        {
+            bool result = OrderAutoRA.UpdateStatus(model, user_id);
+            return Result(result ? ApiResultEnum.Success : ApiResultEnum.Failed);
+        }
+    }
+}

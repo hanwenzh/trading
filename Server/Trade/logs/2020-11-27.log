@@ -1,0 +1,8 @@
+2020-11-27 09:36:37.5953 ERROR  SignalRÆô¶¯Ê§°Ü  Global.Application_Start => MessageService.Init => NLog.Error
+2020-11-27 09:37:16.0901 ERROR  SignalRÆô¶¯Ê§°Ü  Global.Application_Start => MessageService.Init => NLog.Error
+2020-11-27 09:40:12.9743 ERROR  Ö´ÐÐÊÂÎñÊ§°Ü  AccountGroupDA.UpdateItems => MySQLHelper.ExecuteNonQuery => NLog.Error
+2020-11-27 09:41:30.7300 ERROR  Ö´ÐÐÊÂÎñÊ§°Ü  AccountGroupDA.UpdateItems => MySQLHelper.ExecuteNonQuery => NLog.Error
+2020-11-27 09:44:40.7688 ERROR  SignalRÆô¶¯Ê§°Ü  Global.Application_Start => MessageService.Init => NLog.Error
+2020-11-27 09:44:59.9293 ERROR  Ö´ÐÐÊÂÎñÊ§°Ü  AccountGroupDA.UpdateItems => MySQLHelper.ExecuteNonQuery => NLog.Error
+2020-11-27 09:45:56.3984 ERROR  SignalRÆô¶¯Ê§°Ü  Global.Application_Start => MessageService.Init => NLog.Error
+2020-11-27 09:45:58.3094 ERROR  Ö´ÐÐTable²éÑ¯Ê§°Ü  AccountGroupDA.ListItems => MySQLHelper.GetDataTable => NLog.Error

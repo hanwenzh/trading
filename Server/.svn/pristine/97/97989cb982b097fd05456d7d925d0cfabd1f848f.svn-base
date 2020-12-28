@@ -1,0 +1,40 @@
+﻿using System;
+
+namespace JY
+{
+    public class OrderItem
+    {
+        public OrderItem(string data)
+        {
+            string[] items = data.Split(',');
+            code = items[0];
+            name = items[1];
+            type = items[2];
+            price = items[3];
+            count = items[4];
+            deal_count = items[5];
+            cancel_count = "0";
+            status = items[6];
+            time = items[8];
+            order_no = items[9];
+        }
+
+        public string code { get; set; }
+        public string name { get; set; }
+        public string type { get; set; }
+        public string price { get; set; }
+        public string count { get; set; }
+        public string deal_count { get; set; }
+        public string cancel_count
+        {
+            get
+            {
+                return status.Contains("撤") ? (decimal.Parse(count) - decimal.Parse(deal_count)).ToString() : "0";
+            }
+            set { }
+        }
+        public string status { get; set; }
+        public string time { get; set; }
+        public string order_no { get; set; }
+    }
+}

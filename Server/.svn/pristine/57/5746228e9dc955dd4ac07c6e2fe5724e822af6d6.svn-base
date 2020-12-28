@@ -1,0 +1,22 @@
+﻿using Model.API;
+using Model.Common;
+using Model.Enum;
+using Model.MySQL;
+using MySQLSrv;
+using RapidTrade.Interface;
+using System;
+using System.Collections.Generic;
+using System.ServiceModel.Activation;
+
+namespace RapidTrade.Service
+{
+    [AspNetCompatibilityRequirements(RequirementsMode = AspNetCompatibilityRequirementsMode.Allowed)]
+    public class Query : Service, IQuery
+    {
+        public Result LogCapital(SearchCapitalLog model)
+        {
+            List<LogCapital> lst = LogCapitalDA.List(model);
+            return Result(ApiResultEnum.Success, lst);
+        }
+    }
+}

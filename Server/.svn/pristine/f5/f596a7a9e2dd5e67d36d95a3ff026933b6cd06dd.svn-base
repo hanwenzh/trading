@@ -1,0 +1,85 @@
+﻿using RedisSrv.Helper;
+using StackExchange.Redis;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace RedisSrv
+{
+    public class TradeRA
+    {
+        public static string GetString(string key)
+        {
+            RedisValue rv = RedisBiz.Trade.StringGet(key);
+            if (rv.HasValue)
+                return rv.ToString();
+            return null;
+        }
+
+        public static bool SetInt(string key, int value)
+        {
+            return RedisBiz.Trade.StringSet(key, value);
+        }
+
+        public static int GetInt(string key)
+        {
+            RedisValue rv = RedisBiz.Trade.StringGet(key);
+            if (rv.HasValue)
+                return int.Parse(rv.ToString());
+            return 0;
+        }
+
+        public static bool SetString(string key, string value)
+        {
+            return RedisBiz.Trade.StringSet(key, value);
+        }
+
+        public static void SetFields(string key, Dictionary<string, string> items)
+        {
+            HashEntry[] entries = items.Select(kvp => new HashEntry(kvp.Key, kvp.Value)).ToArray();
+            RedisBiz.Trade.HashSet(key, entries);
+        }
+
+        public static string[] GetFields(string key, string[] fields)
+        {
+            RedisValue[] rv = RedisBiz.Trade.HashGet(key, fields.Select(f => new RedisValue(f)).ToArray());
+            return rv.Select(r => r.HasValue ? r.ToString() : null).ToArray();
+        }
+
+        public static Dictionary<string, string> GetFields(string key)
+        {
+            Dictionary<string, string> dic = new Dictionary<string, string>();
+            HashEntry[] hes = RedisBiz.Trade.HashGetAll(key);
+            foreach(HashEntry he in hes)
+            {
+                dic.Add(he.Name, he.Value.HasValue ? he.ToString() : null);
+            }
+            return dic;
+        }
+
+        public static bool Set(string key, string field, string value)
+        {
+            return RedisBiz.Trade.HashSet(key, field, value);
+        }
+
+        public static bool SetExpire(string key)
+        {
+            return RedisBiz.Trade.KeyExpire(key, DateTime.Now.Date.AddDays(5).AddHours(22));
+        }
+
+        public static bool KeyExists(string key)
+        {
+            return RedisBiz.Trade.KeyExists(key);
+        }
+
+        public static bool KeyRename(string key_old, string key_new)
+        {
+            return RedisBiz.Trade.KeyRename(key_old, key_new);
+        }
+
+        public static string[] KeySearch(string keyPattern)
+        {
+            return RedisBiz.Trade.KeySearch(keyPattern);
+        }
+    }
+}

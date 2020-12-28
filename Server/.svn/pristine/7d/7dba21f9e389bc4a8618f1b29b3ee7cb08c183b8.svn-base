@@ -1,0 +1,60 @@
+﻿using System;
+using System.Collections.Generic;
+using Model.DB;
+
+namespace RedisSrv
+{
+    public class DealRA
+    {
+        public static Deal Get(string  key)
+        {
+            Dictionary<string, string> dic = TradeRA.GetFields(key);
+            return new Deal()
+            {
+                code = dic["code"],
+                name = dic["name"],
+                money = decimal.Parse(dic["money"]),
+                deal_no = dic["deal_no"],
+                time = dic["time"],
+                price = decimal.Parse(dic["price"]),
+                count = int.Parse(dic["count"]),
+                type = int.Parse(dic["type"]),
+                order_no = dic["order_no"],
+                unit_id = int.Parse(dic["unit_id"]),
+                account_id = int.Parse(dic["account_id"]),
+                commission = decimal.Parse(dic["commission"]),
+                management_fee = decimal.Parse(dic["management_fee"]),
+                transferred = int.Parse(dic["transferred"])
+            };
+        }
+
+        public static void Add(Deal deal, string key)
+        {
+            Dictionary<string, string> items = new Dictionary<string, string>();
+            items.Add("code", deal.code);
+            items.Add("name", deal.name);
+            items.Add("type", deal.type.ToString());
+            items.Add("count", deal.count.ToString());
+            items.Add("money", deal.money.ToString());
+            items.Add("time", deal.time);
+            items.Add("deal_no", deal.deal_no);
+            items.Add("order_no", deal.order_no);
+            items.Add("price", deal.price.ToString());
+            items.Add("unit_id", deal.unit_id.ToString());
+            items.Add("account_id", deal.account_id.ToString());
+            items.Add("commission", deal.commission.ToString());
+            items.Add("management_fee", deal.management_fee.ToString());
+            items.Add("transferred", deal.transferred.ToString());
+            TradeRA.SetFields(key, items);
+            TradeRA.SetExpire(key);
+        }
+
+        public static void UpdateFee(Deal deal, string key)
+        {
+            Dictionary<string, string> items = new Dictionary<string, string>();
+            items.Add("commission", deal.commission.ToString());
+            items.Add("management_fee", deal.management_fee.ToString());
+            TradeRA.SetFields(key, items);
+        }
+    }
+}

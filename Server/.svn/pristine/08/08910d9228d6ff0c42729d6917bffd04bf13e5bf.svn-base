@@ -1,0 +1,13 @@
+﻿using Model.Enum;
+using System;
+using System.Runtime.Serialization;
+
+namespace Model.API
+{
+    [DataContract]
+    public class OrderLimit : Order
+    {
+        [DataMember]
+        public int account_id { get; set; }
+    }
+}

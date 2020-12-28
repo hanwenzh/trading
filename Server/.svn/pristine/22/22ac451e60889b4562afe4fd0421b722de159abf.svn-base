@@ -1,0 +1,21 @@
+﻿using System;
+using System.Linq;
+
+namespace Common
+{
+    public class EnumHelper
+    {
+        public static string Enums2String<T>(T[] enums)
+        {
+            return string.Join(",", enums);
+        }
+
+        public static T[] String2Enums<T>(string strs)
+        {
+            return strs.Split(',').Select(s =>
+            {
+                return (T)Enum.ToObject(typeof(T), s);
+            }).ToArray();
+        }
+    }
+}

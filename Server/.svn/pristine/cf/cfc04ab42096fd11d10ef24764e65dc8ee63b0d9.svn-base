@@ -1,0 +1,102 @@
+﻿using Model.Enum;
+using Model.DB;
+using MySQLSrv.Helper;
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Linq;
+
+namespace MySQLSrv
+{
+    public class AccountGroupDA
+    {
+        public static List<AccountGroup> List()
+        {
+            string sql = "SELECT * FROM account_group";
+            DataTable dt = MySQLHelper.GetDataTable(sql, null);
+            List<AccountGroup> groups = DAHelper.GetListByDataTable<AccountGroup>(dt);
+
+            sql = "SELECT * FROM v_account_group_item";
+            dt = MySQLHelper.GetDataTable(sql, null);
+            List<AccountGroupItem> items = DAHelper.GetListByDataTable<AccountGroupItem>(dt);
+
+            groups.ForEach(g => { g.items = items.Where(i => i.account_group_id == g.id).OrderBy(i => i.sort_buy).ToList(); });
+            return groups;
+        }
+
+        public static List<AccountGroupItem> ListItems()
+        {
+            string sql = "SELECT * FROM v_account_group_item WHERE unit_id IS NOT NULL";
+            DataTable dt = MySQLHelper.GetDataTable(sql, null);
+            return DAHelper.GetListByDataTable<AccountGroupItem>(dt);
+        }
+
+        public static List<AccountGroupItem> ListItems4AccountGroup(int account_group_id)
+        {
+            string sql = "SELECT * FROM v_account_group_item WHERE account_group_id = " + account_group_id + " AND unit_id IS NOT NULL";
+            DataTable dt = MySQLHelper.GetDataTable(sql, null);
+            return DAHelper.GetListByDataTable<AccountGroupItem>(dt);
+        }
+
+        public static ApiResultEnum Add(AccountGroup model, ref int id, string _operator)
+        {
+            string sql = "SELECT `code` FROM account_group WHERE `code` = @code";
+            object obj = MySQLHelper.ExecuteScalar(sql, DAHelper.CreateParams(sql, model));
+            if (obj != null)
+            {
+                return ApiResultEnum.Code_Exist;
+            }
+
+            sql = "INSERT INTO account_group(`code`, `name`) VALUES(@code, @name); SELECT LAST_INSERT_ID()";
+            obj = MySQLHelper.ExecuteScalar(sql, DAHelper.CreateParams(sql, model));
+            if (obj != null)
+            {
+                id = int.Parse(obj.ToString());
+                LogActionDA.Add(_operator, string.Format("创建主账户池{0}({1})", id, model.code));
+                return ApiResultEnum.Success;
+            }
+            else
+                return ApiResultEnum.Failed;
+        }
+
+        public static ApiResultEnum Update(AccountGroup model)
+        {
+            string sql = "SELECT `code` FROM account_group WHERE id <> @id AND `code` = @code";
+            object obj = MySQLHelper.ExecuteScalar(sql, DAHelper.CreateParams(sql, model));
+            if (obj != null)
+            {
+                    return ApiResultEnum.Code_Exist;
+            }
+
+            sql = "UPDATE account_group SET `code`=@code, `name`=@name WHERE id =@id";
+            if (MySQLHelper.ExecuteNonQuery(sql, DAHelper.CreateParams(sql, model)) > 0)
+                return ApiResultEnum.Success;
+            return ApiResultEnum.Failed;
+        }
+
+        public static ApiResultEnum UpdateItems(AccountGroup model)
+        {
+            List<string> sqls = new List<string>();
+            sqls.Add("DELETE FROM account_group_item WHERE account_group_id = " + model.id);
+            model.items.ForEach(i =>
+            {
+                sqls.Add(string.Format("INSERT INTO account_group_item(account_group_id,account_id,capital_allow,sort_buy,sort_sell) VALUES({0},{1},{2},{3},{4})", model.id, i.account_id, i.capital_allow, i.sort_buy, i.sort_sell));
+            });
+            sqls.Add(string.Format("UPDATE account_group SET priority_strategy={0} WHERE id = {1}", model.priority_strategy, model.id));
+            if (MySQLHelper.ExecuteNonQuery(sqls))
+                return ApiResultEnum.Success;
+            return ApiResultEnum.Failed;
+        }
+
+        public static ApiResultEnum Delete(AccountGroup model, string _operator)
+        {
+            string sql = "DELETE FROM account WHERE id=@id";
+            if (MySQLHelper.ExecuteNonQuery(sql, DAHelper.CreateParams(sql, model)) > 0)
+            {
+                LogActionDA.Add(_operator, string.Format("删除主账户池{0}({1})", model.id, model.code));
+                return ApiResultEnum.Success;
+            }
+            return ApiResultEnum.Failed;
+        }
+    }
+}

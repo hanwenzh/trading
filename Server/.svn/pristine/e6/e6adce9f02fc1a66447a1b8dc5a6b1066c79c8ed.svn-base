@@ -1,0 +1,77 @@
+﻿using Model.Return;
+using Model.Common;
+using Model.Enum;
+using MySQLSrv;
+using Trade.Interface;
+using System;
+using System.Collections.Generic;
+using System.ServiceModel.Activation;
+using Trade.Biz;
+using RedisSrv;
+
+namespace Trade.Service
+{
+    [AspNetCompatibilityRequirements(RequirementsMode = AspNetCompatibilityRequirementsMode.Allowed)]
+    public class Account : Service, IAccount
+    {
+        public ResultAccount List()
+        {
+            List<Model.DB.Account> lst = AccountDA.List();
+            return new ResultAccount(lst);
+        }
+
+        public ResultBase List4Filter()
+        {
+            List<Model.Common.Base> lst = AccountDA.List4Filter();
+            return new ResultBase(lst);
+        }
+
+        public ResultBase List4Unit(int unit_id)
+        {
+            List<Model.Common.Base> lst = AccountDA.List4Unit(unit_id);
+            return new ResultBase(lst);
+        }
+
+        public ResultLong Add(Model.DB.Account model)
+        {
+            int id = 0;
+            model.created_by = user_id;
+            ApiResultEnum result = AccountDA.Add(model, ref id);
+            if (result == ApiResultEnum.Success && TradeRA.GetInt("status_trade") != 0)
+            {
+                model.id = id;
+                OpenCloseBiz.LoadAccount(model);
+            }
+            return Result(result, id);
+        }
+
+        public Result Update(Model.DB.Account model)
+        {
+            ApiResultEnum result = AccountDA.Update(model);
+            if (result == ApiResultEnum.Success && TradeRA.GetInt("status_trade") != 0)
+                OpenCloseBiz.LoadAccount(model, false);
+            return Result(result);
+        }
+
+        public Result UpdateStatus(Status model)
+        {
+            ApiResultEnum result = AccountDA.UpdateStatus(model);
+            if (result == ApiResultEnum.Success && TradeRA.GetInt("status_trade") != 0)
+                AccountRA.UpdateStatus(model.status, "A_" + model.id);
+            return Result(result);
+        }
+
+        public Result UpdateStatusOrder(StatusOrder model)
+        {
+            ApiResultEnum result = AccountDA.UpdateStatusOrder(model);
+            if (result == ApiResultEnum.Success && TradeRA.GetInt("status_trade") != 0)
+                AccountRA.UpdateStatusOrder(model.status, "A_" + model.id);
+            return Result(result);
+        }
+
+        public Result Delete(Model.DB.Account model)
+        {
+            return Result(AccountDA.Delete(model, user_id));
+        }
+    }
+}

@@ -1,0 +1,20 @@
+﻿using MySQLSrv.Helper;
+using System;
+using HQ;
+using System.Collections.Generic;
+using System.Data;
+using Model.DB;
+
+namespace MySQLSrv
+{
+    public class PositionDA
+    {
+        public static List<Position> List()
+        {
+            string sql = "SELECT * FROM position";
+            DataTable dt = MySQLHelper.GetDataTable(sql, null);
+            List<Position> positions = DAHelper.GetListByDataTable<Position>(dt);
+            return positions;
+        }
+    }
+}

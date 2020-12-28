@@ -1,0 +1,113 @@
+﻿using System;
+using System.ComponentModel;
+
+namespace Model.Enum
+{
+    public enum ApiResultEnum
+    {
+        [Description("成功")]
+        Success = 1,
+        [Description("成功")]
+        Success_Portion = 2,
+        [Description("失败")]
+        Failed = 0,
+        [Description("未登录")]
+        NotLoggedIn = -1,
+        [Description("非法请求")]
+        InvalidRequest = -2,
+        [Description("未授权")]
+        Unauthorized = -3,
+        [Description("未知异常")]
+        UncaughtException = -4,
+
+        [Description("代码已存在")]
+        Code_Exist = -10,
+        [Description("已禁用")]
+        Forbidden = -11,
+        [Description("被引用")]
+        Cited = -12,
+
+        [Description("手机号码已存在")]
+        User_Mobile_Exist = -20,
+        [Description("密码不正确")]
+        User_Password_Incorrect = -21,
+        [Description("账号密码不匹配")]
+        User_Code_Password_Mismatch = -22,
+        [Description("终端未授权")]
+        User_Platform_Incorrect = -23,
+
+        [Description("IP已存在")]
+        Account_IP_Exist = -30,
+
+        [Description("系统暂停交易")]
+        Order_Paused = -101,
+        [Description("系统已收盘")]
+        Order_Closed = -102,
+        [Description("用户禁止交易")]
+        Order_User_Forbidden_Order = -103,
+        [Description("用户禁止买入")]
+        Order_User_NoBuying_Order = -104,
+        [Description("股票代码不合法")]
+        Order_Code_Error = -105,
+        [Description("委托价格不合法")]
+        Order_Price_Error = -106,
+        [Description("委托数量不合法")]
+        Order_Count_Error = -107,
+
+        [Description("单元不存在")]
+        Order_Unit_Null = -120,
+        [Description("单元已禁用")]
+        Order_Unit_Forbidden = -121,
+        [Description("单元禁止交易")]
+        Order_Unit_Forbidden_Order = -122,
+        [Description("单元禁止买入")]
+        Order_Unit_NoBuying_Order = -123,
+        [Description("单元禁止买入该股票")]
+        Order_Unit_NoBuying_Code = -124,
+        [Description("单元可用资金不足")]
+        Order_Unit_Negative_Amount = -125,
+        [Description("单元可卖数量不足")]
+        Order_Unit_Negative_Position = -126,
+        [Description("超过单元单票比例")]
+        Order_Unit_Limit_Single = -127,
+        [Description("超过单元主板单票比例")]
+        Order_Unit_Limit_MBM_Single = -128,
+        [Description("超过单元创业板单票比例")]
+        Order_Unit_Limit_GEM_Single = -129,
+        [Description("超过单元创业板总比例")]
+        Order_Unit_Limit_GEM_Total = -130,
+        [Description("超过单元中小板单票比例")]
+        Order_Unit_Limit_SME_Single = -131,
+        [Description("超过单元中小板总比例")]
+        Order_Unit_Limit_SME_Total = -132,
+        [Description("超过单元中小创总比例")]
+        Order_Unit_Limit_SMG_Total = -133,
+        [Description("超过单元科创板单票比例")]
+        Order_Unit_Limit_STAR_Single = -134,
+        [Description("超过单元科创板总比例")]
+        Order_Unit_Limit_STAR_Total = -135,
+        [Description("超过单元股票个数限制")]
+        Order_Unit_Limit_Count = -136,
+        [Description("超出单元委托价格范围")]
+        Order_Unit_Limit_Price = -137,
+
+        [Description("主账户已禁用")]
+        Order_Account_Forbidden = -150,
+        [Description("主账户禁止交易")]
+        Order_Account_Forbidden_Order = -151,
+        [Description("主账户禁止买入")]
+        Order_Account_NoBuying_Order = -152,
+        [Description("主账户禁止买入该股票")]
+        Order_Account_NoBuying_Code = -153,
+        [Description("主账户可用资金不足")]
+        Order_Account_Negative_Amount = -154,
+        [Description("主账户可卖数量不足")]
+        Order_Account_Negative_Position = -155,
+        [Description("超过主账户单票比例")]
+        Order_Account_Limit_Single = -156,
+        [Description("超过主账户创业板单票比例")]
+        Order_Account_Limit_GEM_Single = -157,
+        [Description("超过主账户创业板总比例")]
+        Order_Account_Limit_GEM_Total = -158
+    }
+}

@@ -1,0 +1,12 @@
+2020-12-01 09:48:39.0936 ERROR  SignalRÆô¶¯Ê§°Ü  Global.Application_Start => MessageService.Init => NLog.Error
+2020-12-01 09:49:22.0945 ERROR  SignalRÆô¶¯Ê§°Ü  Global.Application_Start => MessageService.Init => NLog.Error
+2020-12-01 09:49:23.6585 ERROR  Ö´ÐÐScalar²éÑ¯Ê§°Ü  UnitDA.Add => MySQLHelper.ExecuteScalar => NLog.Error
+2020-12-01 09:53:39.5615 ERROR  Ö´ÐÐScalar²éÑ¯Ê§°Ü  UnitDA.Add => MySQLHelper.ExecuteScalar => NLog.Error
+2020-12-01 10:11:25.2740 ERROR  SignalRÆô¶¯Ê§°Ü  Global.Application_Start => MessageService.Init => NLog.Error
+2020-12-01 10:15:11.7488 ERROR  SignalRÆô¶¯Ê§°Ü  Global.Application_Start => MessageService.Init => NLog.Error
+2020-12-01 10:18:11.9548 ERROR  SignalRÆô¶¯Ê§°Ü  Global.Application_Start => MessageService.Init => NLog.Error
+2020-12-01 10:31:10.7690 ERROR  SignalRÆô¶¯Ê§°Ü  Global.Application_Start => MessageService.Init => NLog.Error
+2020-12-01 10:34:29.7240 ERROR  SignalRÆô¶¯Ê§°Ü  Global.Application_Start => MessageService.Init => NLog.Error
+2020-12-01 13:40:31.2334 ERROR  SignalRÆô¶¯Ê§°Ü  Global.Application_Start => MessageService.Init => NLog.Error
+2020-12-01 13:40:32.8293 ERROR  Ö´ÐÐ·Ç²éÑ¯Óï¾äÊ§°Ü  UnitDA.Update => MySQLHelper.ExecuteNonQuery => NLog.Error
+2020-12-01 13:43:12.5593 ERROR  SignalRÆô¶¯Ê§°Ü  Global.Application_Start => MessageService.Init => NLog.Error

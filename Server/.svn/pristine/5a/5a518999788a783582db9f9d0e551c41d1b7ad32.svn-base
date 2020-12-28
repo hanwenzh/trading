@@ -1,0 +1,18 @@
+﻿using System;
+using System.Runtime.Serialization;
+
+namespace Model.API
+{
+    [DataContract]
+    public class UnitCapital
+    {
+        [DataMember]
+        public decimal balance { get; set; }
+
+        [DataMember]
+        public decimal available { get; set; }
+
+        [DataMember]
+        public decimal scale { get; set; }
+    }
+}

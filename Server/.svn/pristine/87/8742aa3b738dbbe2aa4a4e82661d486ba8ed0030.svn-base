@@ -1,0 +1,91 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+
+	<appSettings>
+		<add key="aspnet:UseTaskFriendlySynchronizationContext" value="true" />
+	</appSettings>
+	<connectionStrings>
+		<add name="MySQLConnection" connectionString="Server=192.168.1.100;Port=3306;Database=trade;Uid=root;Pwd=ydgljVR%q6pc" />
+		<add name="RedisConnection" connectionString="192.168.1.100:6379,password=*^2&amp;^%^397dsd" />
+	</connectionStrings>
+	<system.web>
+		<compilation debug="true" targetFramework="4.7.2" />
+		<httpRuntime targetFramework="4.7.2" />
+	</system.web>
+	<system.serviceModel>
+		<extensions>
+			<behaviorExtensions>
+				<add name="TokenInspector" type="RapidTrade.Code.TokenBehaviorExtensionElement, RapidTrade" />
+				<add name="PlatformInspector" type="RapidTrade.Code.PlatformBehaviorExtensionElement, RapidTrade" />
+			</behaviorExtensions>
+		</extensions>
+		<behaviors>
+			<serviceBehaviors>
+				<behavior>
+					<!-- 为避免泄漏元数据信息，请在部署前将以下值设置为 false -->
+					<serviceMetadata httpGetEnabled="true" httpsGetEnabled="true" />
+					<!-- 要接收故障异常详细信息以进行调试，请将以下值设置为 true。在部署前设置为 false 以避免泄漏异常信息 -->
+					<serviceDebug includeExceptionDetailInFaults="false" />
+				</behavior>
+			</serviceBehaviors>
+			<endpointBehaviors>
+				<behavior name="tokenInspectorHttp">
+					<TokenInspector />
+					<webHttp defaultOutgoingResponseFormat="Json" />
+				</behavior>
+				<behavior name="platformInspectorHttp">
+					<PlatformInspector />
+					<webHttp defaultOutgoingResponseFormat="Json" />
+				</behavior>
+			</endpointBehaviors>
+		</behaviors>
+		<protocolMapping>
+			<add binding="basicHttpsBinding" scheme="https" />
+		</protocolMapping>
+		<serviceHostingEnvironment aspNetCompatibilityEnabled="true" multipleSiteBindingsEnabled="true" />
+		<services>
+			<service name="RapidTrade.Service.User">
+				<endpoint behaviorConfiguration="tokenInspectorHttp" binding="webHttpBinding" contract="RapidTrade.Interface.IUser" />
+			</service>
+			<service name="RapidTrade.Service.Account">
+				<endpoint behaviorConfiguration="tokenInspectorHttp" binding="webHttpBinding" contract="RapidTrade.Interface.IAccount" />
+			</service>
+			<service name="RapidTrade.Service.AccountGroup">
+				<endpoint behaviorConfiguration="tokenInspectorHttp" binding="webHttpBinding" contract="RapidTrade.Interface.IAccountGroup" />
+			</service>
+			<service name="RapidTrade.Service.Unit">
+				<endpoint behaviorConfiguration="tokenInspectorHttp" binding="webHttpBinding" contract="RapidTrade.Interface.IUnit" />
+			</service>
+			<service name="RapidTrade.Service.Query">
+				<endpoint behaviorConfiguration="tokenInspectorHttp" binding="webHttpBinding" contract="RapidTrade.Interface.IQuery" />
+			</service>
+			<service name="RapidTrade.Service.Utility">
+				<endpoint behaviorConfiguration="platformInspectorHttp" binding="webHttpBinding" contract="RapidTrade.Interface.IUtility" />
+			</service>
+		</services>
+	</system.serviceModel>
+	<system.webServer>
+		<modules runAllManagedModulesForAllRequests="true" />
+		<!--
+        若要在调试过程中浏览 Web 应用程序根目录，请将下面的值设置为 True。
+        在部署之前将该值设置为 False 可避免泄露 Web 应用程序文件夹信息。
+      -->
+		<directoryBrowse enabled="false" />
+	</system.webServer>
+	<runtime>
+		<assemblyBinding xmlns="urn:schemas-microsoft-com:asm.v1">
+			<dependentAssembly>
+				<assemblyIdentity name="System.Runtime.CompilerServices.Unsafe" publicKeyToken="b03f5f7f11d50a3a" culture="neutral" />
+				<bindingRedirect oldVersion="0.0.0.0-4.0.6.0" newVersion="4.0.6.0" />
+			</dependentAssembly>
+			<dependentAssembly>
+				<assemblyIdentity name="System.Buffers" publicKeyToken="cc7b13ffcd2ddd51" culture="neutral" />
+				<bindingRedirect oldVersion="0.0.0.0-4.0.3.0" newVersion="4.0.3.0" />
+			</dependentAssembly>
+			<dependentAssembly>
+				<assemblyIdentity name="System.Threading.Tasks.Extensions" publicKeyToken="cc7b13ffcd2ddd51" culture="neutral" />
+				<bindingRedirect oldVersion="0.0.0.0-4.2.0.1" newVersion="4.2.0.1" />
+			</dependentAssembly>
+		</assemblyBinding>
+	</runtime>
+</configuration>

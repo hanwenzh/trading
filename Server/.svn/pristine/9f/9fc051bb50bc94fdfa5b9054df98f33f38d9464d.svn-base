@@ -1,0 +1,167 @@
+﻿using System;
+
+namespace HQ
+{
+    public class HQ
+    {
+        /// <summary>
+        /// 代码
+        /// </summary>
+        public string Code { get; set; }
+
+        /// <summary>
+        /// 名称
+        /// </summary>
+        public string Name { get; set; }
+
+        /// <summary>
+        /// 最高价
+        /// </summary>
+        public decimal High { get; set; }
+
+        /// <summary>
+        /// 开盘价
+        /// </summary>
+        public decimal Open { get; set; }
+
+        /// <summary>
+        /// 最低价
+        /// </summary>
+        public decimal Low { get; set; }
+
+        /// <summary>
+        /// 收盘价
+        /// </summary>
+        public decimal Close { get; set; }
+
+        /// <summary>
+        /// 昨收盘价
+        /// </summary>
+        public decimal Close_Prev { get; set; }
+
+        /// <summary>
+        /// 最新价
+        /// </summary>
+        public decimal Last { get; set; }
+
+        /// <summary>
+        /// 成交量
+        /// </summary>
+        public int Volume { get; set; }
+
+        /// <summary>
+        /// 成交金额
+        /// </summary>
+        public decimal Amount { get; set; }
+
+        /// <summary>
+        /// 买1价
+        /// </summary>
+        public decimal Buy_1 { get; set; }
+
+        /// <summary>
+        /// 买2价
+        /// </summary>
+        public decimal Buy_2 { get; set; }
+
+        /// <summary>
+        /// 买3价
+        /// </summary>
+        public decimal Buy_3 { get; set; }
+
+        /// <summary>
+        /// 买4价
+        /// </summary>
+        public decimal Buy_4 { get; set; }
+
+        /// <summary>
+        /// 买5价
+        /// </summary>
+        public decimal Buy_5 { get; set; }
+
+        /// <summary>
+        /// 买1量
+        /// </summary>
+        public int Buy_Volume_1 { get; set; }
+
+        /// <summary>
+        /// 买2量
+        /// </summary>
+        public int Buy_Volume_2 { get; set; }
+
+        /// <summary>
+        /// 买3量
+        /// </summary>
+        public int Buy_Volume_3 { get; set; }
+
+        /// <summary>
+        /// 买4量
+        /// </summary>
+        public int Buy_Volume_4 { get; set; }
+
+        /// <summary>
+        /// 买5量
+        /// </summary>
+        public int Buy_Volume_5 { get; set; }
+
+        /// <summary>
+        /// 卖1价
+        /// </summary>
+        public decimal Sell_1 { get; set; }
+
+        /// <summary>
+        /// 卖2价
+        /// </summary>
+        public decimal Sell_2 { get; set; }
+
+        /// <summary>
+        /// 卖3价
+        /// </summary>
+        public decimal Sell_3 { get; set; }
+
+        /// <summary>
+        /// 卖4价
+        /// </summary>
+        public decimal Sell_4 { get; set; }
+
+        /// <summary>
+        /// 卖5价
+        /// </summary>
+        public decimal Sell_5 { get; set; }
+
+        /// <summary>
+        /// 卖1量
+        /// </summary>
+        public int Sell_Volume_1 { get; set; }
+
+        /// <summary>
+        /// 卖2量
+        /// </summary>
+        public int Sell_Volume_2 { get; set; }
+
+        /// <summary>
+        /// 卖3量
+        /// </summary>
+        public int Sell_Volume_3 { get; set; }
+
+        /// <summary>
+        /// 卖4量
+        /// </summary>
+        public int Sell_Volume_4 { get; set; }
+
+        /// <summary>
+        /// 卖5量
+        /// </summary>
+        public int Sell_Volume_5 { get; set; }
+
+        /// <summary>
+        /// 时间
+        /// </summary>
+        public string Time { get; set; }
+
+        /// <summary>
+        /// 日期
+        /// </summary>
+        public string Date { get; set; }
+    }
+}

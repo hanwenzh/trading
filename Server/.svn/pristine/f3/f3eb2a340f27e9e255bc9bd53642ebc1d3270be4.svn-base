@@ -1,0 +1,441 @@
+﻿using Common;
+using Common.SignalR;
+using HQ;
+using Model.API;
+using Model.Common;
+using Model.DB;
+using Model.Enum;
+using Model.Return;
+using MySQLSrv;
+using RedisSrv;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using Trade.Code;
+
+namespace Trade.Biz
+{
+    public class TradeBiz
+    {
+        private static Dictionary<int, JYBiz> jybizs = new Dictionary<int, JYBiz>();
+        private static bool run = false;
+        private static readonly DateTime time_pause = DateTime.Now.Date.AddMinutes(690);
+        private static readonly DateTime time_recovery = DateTime.Now.Date.AddMinutes(780);
+        private static readonly DateTime time_close = DateTime.Now.Date.AddMinutes(900);
+
+        public static void Start()
+        {
+            if (!run)
+            {
+                run = true;
+                Thread thread = new Thread(Run);
+                thread.IsBackground = true;
+                thread.Start();
+            }
+        }
+
+        public static void Stop()
+        {
+            run = false;
+            foreach (var kvp in jybizs)
+            {
+                kvp.Value.Dispose();
+            }
+        }
+
+        public static void LoadAccount(Account account)
+        {
+            if (!jybizs.ContainsKey(account.id))
+            {
+                jybizs.Add(account.id, new JYBiz(account.id, account.server_ip, account.server_port));
+            }
+            else
+            {
+                jybizs[account.id].Dispose();
+                jybizs[account.id] = new JYBiz(account.id, account.server_ip, account.server_port);
+            }
+        }
+
+        public static void RemoveAccount(int account_id)
+        {
+            if (!jybizs.ContainsKey(account_id))
+            {
+                jybizs[account_id].Dispose();
+                jybizs.Remove(account_id);
+            }
+        }
+
+        private static void Run()
+        {
+            int cv_ticks = 0, cm_ticks = 0;
+            while (run)
+            {
+                RunOrderAuto();
+                cv_ticks++;
+                if (cv_ticks > 2)
+                {
+                    RunCalculateValue();
+                    cv_ticks = 0;
+                }
+                cm_ticks++;
+                if (cm_ticks > 60)
+                {
+                    RunUnitCapitalMonitor();
+                    RunAccountCapitalMonitor();
+                    cm_ticks = 0;
+                }
+                Thread.Sleep(1000);
+            }
+        }
+
+        public static void RunOrderAuto()
+        {
+            List<OrderAuto> orders = OrderAutoRA.List4Undone();
+            foreach (OrderAuto orderAuto in orders)
+            {
+                if (orderAuto.status_enum != StatusAutoOrderEnum.Run)
+                    continue;
+                if (orderAuto.time_next_dt > DateTime.Now)
+                    continue;
+
+                string key = "S_" + orderAuto.id + "_U_" + orderAuto.unit_id + "_D_0";
+                Random random = new Random();
+                Order order = new Order()
+                {
+                    code = orderAuto.code,
+                    type = orderAuto.type,
+                    unit_id = orderAuto.unit_id,
+                    account_id = orderAuto.account_id,
+                    user_id = orderAuto.user_id,
+                    platform = orderAuto.platform
+                };
+                order.count = orderAuto.count_total - orderAuto.order_count;
+                orderAuto.time_next_dt = DateTime.MinValue;
+                if (order.count > orderAuto.count_max)
+                {
+                    order.count = random.Next(orderAuto.count_min / 100, orderAuto.count_max / 100) * 100;
+                    orderAuto.time_next_dt = DateTime.Now.AddSeconds(random.Next(orderAuto.time_min, orderAuto.time_max));
+                }
+                if(orderAuto.time_next_dt >= time_pause && orderAuto.time_next_dt <= time_recovery)
+                {
+                    orderAuto.time_next_dt = orderAuto.time_next_dt.AddMinutes(90);
+                }
+                if (orderAuto.time_next_dt >= time_close)
+                {
+                    OrderAutoRA.UpdateStatus(StatusAutoOrderEnum.Stop, 1, key);
+                    continue;
+                }
+                order.price = DataBiz.GetPriceByPriceType(orderAuto.code, orderAuto.price_type_enum);
+                if (order.price < orderAuto.price_min)
+                    order.price = orderAuto.price_min;
+                else if (order.price > orderAuto.price_max)
+                    order.price = orderAuto.price_max;
+
+                ApiResultEnum result = Order(order);
+
+                orderAuto.result_prev = new Model.Return.Base(result).Message;
+                orderAuto.order_times++;
+                orderAuto.order_count += order.count;
+                orderAuto.time_prev_dt = DateTime.Now;
+                OrderAutoRA.UpdateExecuted(orderAuto, order, key);
+            }
+        }
+
+        public static void RunCalculateValue()
+        {
+            //单元的市值
+            Dictionary<int, decimal[]> dic_unit = new Dictionary<int, decimal[]>();
+            //主账户的市值
+            Dictionary<int, decimal> dic_account = new Dictionary<int, decimal>();
+            //单元下主账户组中的主账户市值
+            Dictionary<string, decimal> dic_account_group = new Dictionary<string, decimal>();
+            string[] keys = TradeRA.KeySearch("P_*");
+            foreach (string key in keys)
+            {
+                Position position = PositionRA.Get(key);
+                HQItem hq = HQService.Get(position.code);
+                decimal price = hq == null ? position.price_latest : hq.Last;
+                decimal value = price * position.count;
+                decimal profit = (price - position.price_cost) * position.count;
+                if (dic_unit.ContainsKey(position.unit_id))
+                {
+                    dic_unit[position.unit_id][position.block] += value;
+                    dic_unit[position.unit_id][4] += value;
+                    dic_unit[position.unit_id][5] += profit;
+                }
+                else
+                {
+                    decimal[] values = new decimal[6] { 0, 0, 0, 0, value, profit };
+                    values[position.block] = value;
+                    dic_unit.Add(position.unit_id, values);
+                }
+
+                //主账户市值暂只计算创业板
+                if (position.block_enum == BlockEnum.gem)
+                {
+                    if (dic_account.ContainsKey(position.account_id))
+                    {
+                        dic_account[position.account_id] += value;
+                    }
+                    else
+                    {
+                        dic_account.Add(position.account_id, value);
+                    }
+                }
+
+                string ua = "U_" + position.unit_id + "_A_" + position.account_id;
+                if (dic_account_group.ContainsKey(ua))
+                {
+                    dic_account_group[ua] += value;
+                }
+                else
+                {
+                    dic_account_group.Add(ua, value);
+                }
+            }
+            foreach (var kvp in dic_unit)
+            {
+                UnitRA.UpdateCapitalStockValue(kvp.Value, "U_" + kvp.Key);
+            }
+            foreach (var kvp in dic_account)
+            {
+                AccountRA.UpdateCapitalStockValue(kvp.Value, "A_" + kvp.Key);
+            }
+            foreach (var kvp in dic_account_group)
+            {
+                AccountGroupRA.UpdateCapitalStockValue(kvp.Key, kvp.Value);
+            }
+        }
+
+        public static void RunUnitCapitalMonitor()
+        {
+            string[] keys = TradeRA.KeySearch("U_*");
+            foreach (string key in keys)
+            {
+                Unit unit = UnitRA.Get(key);
+                if (unit.user_id > 0 && unit.ratio_warning > 0)
+                {
+                    if (unit.capital_total < unit.ratio_warning * unit.capital_scale && unit.status_order_enum == StatusOrderEnum.Allowed)
+                    {
+                        StatusOrder model = new StatusOrder(unit.id, StatusOrderEnum.NoBuying);
+                        UnitDA.UpdateStatusOrder(model);
+                        UnitRA.UpdateStatusOrder(model.status, "U_" + model.id);
+                        UserDA.ListParents(unit.user_id).ForEach(user_id =>
+                        {
+                            MessageBiz.Send(user_id.ToString(), MessageTypeEnum.Unit_Warning, "单元[" + unit.code + "]资产已低于预警线，被禁止买入");
+                        });
+                        NLog.Info(string.Format("单元[{0}]资产已低于预警线，被禁止买入。总资产：{1}", unit.code, unit.capital_total));
+                    }
+                    else if (unit.capital_total > unit.ratio_warning * unit.capital_scale && unit.status_order_enum == StatusOrderEnum.NoBuying)
+                    {
+                        StatusOrder model = new StatusOrder(unit.id, StatusOrderEnum.Allowed);
+                        UnitDA.UpdateStatusOrder(model);
+                        UnitRA.UpdateStatusOrder(model.status, "U_" + model.id);
+                        MessageBiz.Send(unit.user_id.ToString(), MessageTypeEnum.Unit_Recovery, "单元[" + unit.code + "]资产已高于预警线，恢复交易");
+                    }
+                }
+                if (unit.user_id > 0 && unit.ratio_close_position > 0 && unit.capital_total < unit.ratio_close_position * unit.capital_scale)
+                {
+                    List<Position> list = PositionRA.List4Unit(unit.id).Where(p => p.count_sellable > 0).ToList();
+                    if (list.Count > 0)
+                    {
+                        list.ForEach(p =>
+                        {
+                            Order order = new Order()
+                            {
+                                code = p.code,
+                                count = p.count_sellable,
+                                type_enum = OrderTypeEnum.Sell,
+                                unit_id = unit.id,
+                                price = DataBiz.GetPriceByPriceType(p.code, OrderPriceEnum.Buy5),
+                                user_id = 1,
+                                platform = 1
+                            };
+                            Order(order);
+                        });
+                        UserDA.ListParents(unit.user_id).ForEach(user_id =>
+                        {
+                            MessageBiz.Send(unit.id.ToString(), MessageTypeEnum.Unit_Close_Position, "单元[" + unit.code + "]资产已低于平仓线，被强制平仓");
+                        });
+                        NLog.Info(string.Format("单元[{0}]资产已低于平仓线，被强制平仓。总资产：{1}", unit.code, unit.capital_total));
+                    }
+                }
+            }
+        }
+
+        public static void RunAccountCapitalMonitor()
+        {
+            string[] keys = TradeRA.KeySearch("A_*");
+            foreach (string key in keys)
+            {
+                Account account = AccountRA.Get(key);
+                if (account.ratio_capital_warning > 0 && account.capital_total > 0 && account.capital_total < account.ratio_capital_warning * account.capital_initial)
+                {
+                    UserDA.ListParents(account.created_by).ForEach(user_id =>
+                    {
+                        MessageBiz.Send(user_id.ToString(), MessageTypeEnum.Account_Warning, "主账户[" + account.code + "]资产已低于预警线");
+                    });
+                    NLog.Info(string.Format("主账户[{0}]资产已低于预警线。总资产：{1}", account.code, account.capital_total));
+                }
+            }
+        }
+
+        public static ApiResultEnum Order(Order order)
+        {
+            ApiResultEnum result = LimitBiz.CheckStatus(order);
+            if (result != ApiResultEnum.Success)
+                return result;
+            result = LimitBiz.CheckUnit(order);
+            if (result != ApiResultEnum.Success)
+                return result;
+
+            Dictionary<int, int> order_items;
+            if (order.account_id == 0)
+                order_items = LimitBiz.GetOrderAccount(order);
+            else
+                order_items = new Dictionary<int, int>() { { order.account_id, order.count } };
+            if (order_items.Count == 0)
+                return ApiResultEnum.Order_Unit_No_Account;
+            if (order_items.Sum(i => i.Value) == 0)
+                return ApiResultEnum.Order_Group_Negative_Amount;
+
+            int order_count = 0;
+            order.trade_no = FuncHelper.GetUniqueID().ToString();
+            order.trade_count = order.count;
+            foreach (var kvp in order_items)
+            {
+                if (kvp.Value == 0)
+                    continue;
+
+                order.account_id = kvp.Key;
+                order.count = kvp.Value;
+                result = LimitBiz.CheckAccount(order);
+                if (result != ApiResultEnum.Success)
+                    continue;
+
+                BlockInfo block = StockInfoBiz.GetBlock(order.code);
+                order.price = Math.Round(order.price, block.@decimal);
+                jybizs[order.account_id].Order(order);
+                order_count += order.count;
+            }
+
+            if (order_count == 0)
+                return result;
+            if (order_count < order.count)
+                return ApiResultEnum.Success_Portion;
+            return ApiResultEnum.Success;
+        }
+
+        public static List<JY.PositionItem> QueryPosition(int account_id)
+        {
+             return jybizs[account_id].QueryPosition();
+        }
+
+        public static void Cancel(int account_id, string order_nos)
+        {
+            jybizs[account_id].Cancel(order_nos);
+        }
+
+        public static void NewDeal(Deal deal, decimal order_price, int type = 0)
+        {
+            //计算手续费，佣金最少收5元
+            string key_unit = "U_" + deal.unit_id;
+            Unit unit = UnitRA.Get(key_unit);
+            deal.commission = Math.Max(Math.Round(deal.money * unit.ratio_commission, 2), 5);
+            deal.management_fee = Math.Round(deal.money * unit.ratio_management_fee, 2);
+
+            //卖单计算盈亏
+            Position position = PositionRA.Get("P_" + deal.code + "_A_" + deal.account_id + "_U_" + deal.unit_id);
+            if (deal.type == 1 && position != null)
+                deal.profit = Math.Round((deal.price - position.price_cost) * deal.count, 2);
+
+            //更新手续费和盈亏
+            DealRA.UpdateFee(deal, "D_" + deal.deal_no + "_O_" + deal.order_no + "_U_" + deal.unit_id);
+
+            AdjustPosition(position, deal, order_price, type);
+        }
+
+        public static void AdjustPosition(Position position, Deal deal, decimal order_price, int type)
+        {
+            string key_unit = "U_" + deal.unit_id;
+            string key_position = "P_" + deal.code + "_A_" + deal.account_id + "_U_" + deal.unit_id;
+
+            //更新单元余额和冻结
+            if (deal.type_enum == OrderTypeEnum.Buy)
+                UnitRA.UpdateCapitalDealBuy(order_price * deal.count, type == 0, key_unit);
+            else if (deal.type_enum == OrderTypeEnum.Sell)
+                UnitRA.UpdateCapitalDealSell(deal.price * deal.count, key_unit);
+
+            //更新持仓
+            decimal amount = deal.money + deal.commission;
+            if (position != null)
+            {
+                if (deal.type == 0)
+                {
+                    position.price_cost = Math.Round((position.price_cost * position.count + amount) / (deal.count + position.count), 6);
+                    position.count = position.count + deal.count;
+                    if (type == 0 || type == 1)
+                    {
+                        position.price_cost_today_buy = Math.Round((amount + position.price_cost_today_buy * position.count_today_buy) / (deal.count + position.count_today_buy), 6);
+                        position.count_today_buy = deal.count + position.count_today_buy;
+                    }
+                    PositionRA.UpdateBuy(position, key_position);
+                }
+                else
+                {
+                    position.count = position.count - deal.count;
+                    if (type == 0 || type == 1)
+                    {
+                        position.price_cost_today_sell = Math.Round((amount + position.price_cost_today_sell * position.count_today_sell) / (deal.count + position.count_today_sell), 6);
+                        position.count_today_sell = deal.count + position.count_today_sell;
+                    }
+                    PositionRA.UpdateSell(position, key_position);
+                }
+            }
+            else
+            {
+                HQItem hq = HQService.Get(deal.code);
+                BlockInfo block = StockInfoBiz.GetBlock(deal.code);
+                if (block == null)
+                    return;
+
+                position = new Position()
+                {
+                    code = deal.code,
+                    name = deal.name,
+                    unit_id = deal.unit_id,
+                    account_id = deal.account_id,
+                    block_enum = block.block_type_enum,
+                    price_latest = hq != null ? hq.Last : 0
+                };
+                if (deal.type == 0)
+                {
+                    position.price_cost = Math.Round(amount / deal.count, 6);
+                    position.count = deal.count;
+                    if (type == 0 || type == 1)
+                    {
+                        position.price_cost_today_buy = position.price_cost;
+                        position.count_today_buy = position.count;
+                    }
+                    else if(type == 2)
+                    {
+                        position.count_sellable = position.count;
+                    }
+                }
+                else
+                {
+                    position.price_cost = Math.Round(amount / deal.count, 6);
+                    position.count = position.count_sellable = -deal.count;
+                    if (type == 0 || type == 1)
+                    {
+                        position.price_cost_today_sell = position.price_cost;
+                        position.count_today_sell = deal.count;
+                    }
+                }
+                PositionRA.Add(position, key_position);
+            }
+            RunCalculateValue();
+        }
+    }
+}

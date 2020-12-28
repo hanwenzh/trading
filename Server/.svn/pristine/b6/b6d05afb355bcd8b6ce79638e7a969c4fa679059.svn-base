@@ -1,0 +1,140 @@
+﻿using HQ;
+using Model.DB;
+using Model.Enum;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace Trade.Biz
+{
+    public class DataBiz
+    {
+        public static decimal GetPriceByPriceType(string code, OrderPriceEnum priceEnum)
+        {
+            HQItem hq = HQService.Get(code);
+            decimal price = hq.Last;
+            switch (priceEnum)
+            {
+                case OrderPriceEnum.Buy1:
+                    price = hq.Buy_1;
+                    break;
+                case OrderPriceEnum.Buy2:
+                    price = hq.Buy_2;
+                    break;
+                case OrderPriceEnum.Buy3:
+                    price = hq.Buy_3;
+                    break;
+                case OrderPriceEnum.Buy4:
+                    price = hq.Buy_4;
+                    break;
+                case OrderPriceEnum.Buy5:
+                    price = hq.Buy_5;
+                    break;
+                case OrderPriceEnum.Sell1:
+                    price = hq.Sell_1;
+                    break;
+                case OrderPriceEnum.Sell2:
+                    price = hq.Sell_2;
+                    break;
+                case OrderPriceEnum.Sell3:
+                    price = hq.Sell_3;
+                    break;
+                case OrderPriceEnum.Sell4:
+                    price = hq.Sell_4;
+                    break;
+                case OrderPriceEnum.Sell5:
+                    price = hq.Sell_5;
+                    break;
+            }
+            if (price == 0 && hq.Close_Prev > 0)
+            {
+                BlockInfo block = StockInfoBiz.GetBlock(code);
+                switch (priceEnum)
+                {
+                    case OrderPriceEnum.Buy1:
+                    case OrderPriceEnum.Buy2:
+                    case OrderPriceEnum.Buy3:
+                    case OrderPriceEnum.Buy4:
+                    case OrderPriceEnum.Buy5:
+                        price = block.block_type_enum == BlockEnum.gem ? hq.Close_Prev * 0.8m : hq.Close_Prev * 0.9m;
+                        break;
+                    case OrderPriceEnum.Sell1:
+                    case OrderPriceEnum.Sell2:
+                    case OrderPriceEnum.Sell3:
+                    case OrderPriceEnum.Sell4:
+                    case OrderPriceEnum.Sell5:
+                        price = block.block_type_enum == BlockEnum.gem ? hq.Close_Prev * 1.2m : hq.Close_Prev * 1.1m;
+                        break;
+                }
+            }
+            return price;
+        }
+
+        public static void OrderMerge(ref IEnumerable<Order> lst)
+        {
+            List<Order> orders = lst.GroupBy(o => new { o.trade_no, o.trade_count, o.code, o.name, o.price, o.type, o.unit_id, o.unit_name, o.platform, o.user_id, o.user_name }).Select(x =>
+            {
+                int count = x.Sum(i => i.count);
+                return new Order()
+                {
+                    trade_no = x.Key.trade_no,
+                    trade_count = x.Key.trade_count,
+                    code = x.Key.code,
+                    name = x.Key.name,
+                    price = x.Key.price,
+                    type = x.Key.type,
+                    unit_id = x.Key.unit_id,
+                    unit_name = x.Key.unit_name,
+                    platform = x.Key.platform,
+                    user_id = x.Key.user_id,
+                    user_name = x.Key.user_name,
+                    count = count,
+                    deal_count = x.Sum(i => i.deal_count),
+                    cancel_count = x.Sum(i => i.cancel_count),
+                    deal_average_price = count == 0 ? 0 : x.Sum(i => i.count * i.deal_average_price) / count,
+                    time_dt = x.Min(i => i.time_dt)
+                };
+            }).ToList();
+            foreach (Order order in orders)
+            {
+                if (order.deal_count == order.count)
+                    order.status = "已成";
+                else if (order.cancel_count == order.count)
+                    order.status = "已撤";
+                else if (order.cancel_count == 0 && order.deal_count == 0)
+                    order.status = "已报";
+                else if (order.cancel_count > 0)
+                    order.status = "部撤";
+                else if (order.deal_count > 0)
+                    order.status = "部成";
+            }
+            lst = orders.OrderBy(o => o.time_dt);
+        }
+
+        public static void PositionMerge(ref IEnumerable<Position> lst)
+        {
+            lst = lst.GroupBy(p => new { p.code, p.name, p.unit_id, p.unit_name }).Select(x =>
+            {
+                int count = x.Sum(i => i.count);
+                int count_today_buy = x.Sum(i => i.count_today_buy);
+                int count_today_sell = x.Sum(i => i.count_today_sell);
+                return new Position()
+                {
+                    code = x.Key.code,
+                    name = x.Key.name,
+                    unit_id = x.Key.unit_id,
+                    unit_name = x.Key.unit_name,
+                    account_name = string.Join(",", x.Select(i => i.account_name)),
+                    count = count,
+                    count_sellable = x.Sum(i => i.count_sellable),
+                    price_cost = count == 0 ? 0 : Math.Round(x.Sum(i => i.price_cost * i.count) / count, 3),
+                    price_cost_today_buy = count_today_buy == 0 ? 0 : x.Sum(i => i.price_cost_today_buy * i.count_today_buy) / count_today_buy,
+                    price_cost_today_sell = count_today_sell == 0 ? 0 : x.Sum(i => i.price_cost_today_sell * i.count_today_sell) / count_today_sell,
+                    count_today_buy = count_today_buy,
+                    count_today_sell = count_today_sell,
+                };
+            });
+            lst = lst.OrderBy(p => p.unit_id);
+        }
+    }
+}

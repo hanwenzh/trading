@@ -1,0 +1,39 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Microsoft.AspNet.SignalR;
+using Microsoft.AspNet.SignalR.Hubs;
+
+namespace Common.SignalR
+{
+    public class MessageHub : Hub
+    {
+        private static IHubConnectionContext<dynamic> clients = GlobalHost.ConnectionManager.GetHubContext<MessageHub>().Clients;
+
+        public static EventHandler<string> Subscribed;
+        public static EventHandler<string> Disconnected;
+
+        public void Subscribe(string token, string platform)
+        {
+            Subscribed?.Invoke(Context.ConnectionId, token + "-" + platform);
+        }
+
+        public static void Send(string conn_id, MessageTypeEnum messageType, string message)
+        {
+            string type = ((int)messageType).ToString().PadLeft(4, '0');
+            clients.Client(conn_id).Message(message);
+        }
+
+        public static void Send(List<string> conn_ids, MessageTypeEnum messageType, string message)
+        {
+            string type = ((int)messageType).ToString().PadLeft(4, '0');
+            clients.Clients(conn_ids).Message(message);
+        }
+
+        public override Task OnDisconnected(bool stopCalled)
+        {
+            Disconnected?.Invoke(null, Context.ConnectionId);
+            return base.OnDisconnected(stopCalled);
+        }
+    }
+}

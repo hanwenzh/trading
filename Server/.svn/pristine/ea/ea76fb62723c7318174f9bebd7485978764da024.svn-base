@@ -1,0 +1,152 @@
+﻿using NetMQ;
+using NetMQ.Sockets;
+using System;
+using System.Collections.Generic;
+using System.Configuration;
+using System.Linq;
+using System.Text;
+using System.Threading;
+
+namespace HQ
+{
+    public class HQService
+    {
+        public static Dictionary<string, HQ> HQs = new Dictionary<string, HQ>();
+        private static readonly string query_server = ConfigurationManager.AppSettings["HQQueryServer"];
+        private static readonly string push_server = ConfigurationManager.AppSettings["HQPushServer"];
+
+        public static HQ Get(string code)
+        {
+            if (HQs.ContainsKey(code))
+            {
+                return HQs[code];
+            }
+            else
+            {
+                List<HQ> hqs = Query(code);
+                return hqs.Count > 0 ? hqs[0] : null;
+            }
+        }
+
+        public static List<HQ> Get(List<string> codes)
+        {
+            var kvp = HQs.Where(h => codes.Contains(h.Key));
+            if (kvp.Count() == codes.Count)
+            {
+                return kvp.Select(h => h.Value).ToList();
+            }
+            else
+            {
+                List<HQ> hqs = Query(string.Join(",", codes));
+                return hqs;
+            }
+        }
+
+
+        static HQService()
+        {
+            Thread thread = new Thread(Subscribe);
+            thread.IsBackground = true;
+            thread.Start();
+        }
+
+        private static void Subscribe()
+        {
+            using (var subscriber = new SubscriberSocket())
+            {
+                subscriber.Connect(push_server);
+                subscriber.Subscribe("A");
+                while (true)
+                {
+                    string response = subscriber.ReceiveFrameString(Encoding.UTF8);
+                    List<HQ> hqs = new List<HQ>();
+                    Deal(response, ref hqs);
+                }
+            }
+        }
+
+        private static List<HQ> Query(string codes)
+        {
+            List<HQ> hqs = new List<HQ>();
+            try
+            {
+                using (var client = new RequestSocket())
+                {
+                    client.Connect(query_server);
+                    client.SendFrame("8001|" + codes);
+                    var response = client.ReceiveFrameString(Encoding.UTF8);
+                    Deal(response, ref hqs);
+                }
+            }
+            catch
+            { }
+            return hqs;
+        }
+
+
+        private static void Deal(string response, ref List<HQ> hqs)
+        {
+            if (response.StartsWith("80001|"))
+            {
+                string[] datas = response.Substring(7).Replace("}", "").Split('{');
+                foreach (string data in datas)
+                {
+                    if (string.IsNullOrEmpty(data))
+                        continue;
+                    hqs.Add(string2HQ(data));
+                }
+            }
+
+            lock (HQs)
+            {
+                hqs.ForEach(h =>
+                {
+                    if (HQs.ContainsKey(h.Code))
+                        HQs[h.Code] = h;
+                    else
+                        HQs.Add(h.Code, h);
+                });
+            }
+        }
+
+        private static HQ string2HQ(string str)
+        {
+            string[] items = str.Split(',');
+            return new HQ()
+            {
+                Code = items[0],
+                Name = items[1],
+                High = decimal.Parse(items[2]),
+                Open = decimal.Parse(items[3]),
+                Low = decimal.Parse(items[4]),
+                Close = decimal.Parse(items[5]),
+                Close_Prev = decimal.Parse(items[6]),
+                Last = decimal.Parse(items[7]),
+                Volume = int.Parse(items[8]),
+                Amount = decimal.Parse(items[9]),
+                Buy_1 = decimal.Parse(items[10]),
+                Buy_2 = decimal.Parse(items[11]),
+                Buy_3 = decimal.Parse(items[12]),
+                Buy_4 = decimal.Parse(items[13]),
+                Buy_5 = decimal.Parse(items[14]),
+                Buy_Volume_1 = int.Parse(items[15]),
+                Buy_Volume_2 = int.Parse(items[16]),
+                Buy_Volume_3 = int.Parse(items[17]),
+                Buy_Volume_4 = int.Parse(items[18]),
+                Buy_Volume_5 = int.Parse(items[19]),
+                Sell_1 = decimal.Parse(items[20]),
+                Sell_2 = decimal.Parse(items[21]),
+                Sell_3 = decimal.Parse(items[22]),
+                Sell_4 = decimal.Parse(items[23]),
+                Sell_5 = decimal.Parse(items[24]),
+                Sell_Volume_1 = int.Parse(items[25]),
+                Sell_Volume_2 = int.Parse(items[26]),
+                Sell_Volume_3 = int.Parse(items[27]),
+                Sell_Volume_4 = int.Parse(items[28]),
+                Sell_Volume_5 = int.Parse(items[29]),
+                Time = items[30],
+                Date = items[31]
+            };
+        }
+    }
+}

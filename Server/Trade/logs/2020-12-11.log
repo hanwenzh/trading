@@ -1,0 +1,4 @@
+2020-12-11 11:05:07.2514 ERROR  SignalR启动失败  Global.Application_Start => MessageService.Init => NLog.Error
+2020-12-11 11:09:50.4285 ERROR  SignalR启动失败  Global.Application_Start => MessageService.Init => NLog.Error
+2020-12-11 11:12:42.6255 ERROR  打开数据库连接失败  MySQLHelper.GetDataTable => MySQLHelper.GetConnection => NLog.Error
+2020-12-11 11:13:33.9156 ERROR  SignalR启动失败  Global.Application_Start => MessageService.Init => NLog.Error

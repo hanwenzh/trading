@@ -1,0 +1,17 @@
+﻿using Model.API;
+using Model.MySQL;
+using System;
+using System.ServiceModel;
+using System.ServiceModel.Web;
+
+namespace Trade.Interface
+{
+    [ServiceContract]
+    [ServiceKnownType(typeof(User))]
+    public interface IUtility
+    {
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        ResultLogin Login(User model);
+    }
+}

@@ -1,0 +1,16 @@
+﻿using Model.Return;
+using Model.DB;
+using System;
+using System.ServiceModel;
+using System.ServiceModel.Web;
+
+namespace Trade.Interface
+{
+    [ServiceContract]
+    public interface IUtility
+    {
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        ResultLogin Login(User model);
+    }
+}

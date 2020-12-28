@@ -1,0 +1,31 @@
+﻿using System;
+
+namespace JY
+{
+    public class DealItem
+    {
+        public DealItem(string data)
+        {
+            string[] items = data.Split(',');
+            code = items[0];
+            name = items[1];
+            type = items[2];
+            price = items[3];
+            count = items[4];
+            money = items[5];
+            time = items[7];
+            deal_no = items[8];
+            order_no = items[9];
+        }
+
+        public string code { get; set; }
+        public string name { get; set; }
+        public string type { get; set; }
+        public string price { get; set; }
+        public string count { get; set; }
+        public string money { get; set; }
+        public string deal_no { get; set; }
+        public string time { get; set; }
+        public string order_no { get; set; }
+    }
+}

@@ -1,0 +1,6 @@
+2020-11-25 15:02:21.2429 INFO  发送请求  Program.Main => NLog.Info
+2020-11-25 15:02:25.8143 INFO  {"Code":-102,"Message":"系统已收盘","Data":null}  Program.Main => NLog.Info
+2020-11-25 15:02:28.5632 INFO  退出  Program.Main => NLog.Info
+2020-11-25 15:02:47.2955 INFO  发送请求  Program.Main => NLog.Info
+2020-11-25 15:02:47.4012 INFO  {"Code":-102,"Message":"系统已收盘","Data":null}  Program.Main => NLog.Info
+2020-11-25 15:02:47.4012 INFO  退出  Program.Main => NLog.Info

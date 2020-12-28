@@ -1,0 +1,174 @@
+﻿using Common;
+using JY;
+using RedisSrv;
+using System;
+using System.Collections.Generic;
+
+namespace Trade.Biz
+{
+    public class JYBiz
+    {
+        private int account_id;
+        private JYService JY;
+
+        public JYBiz(int _account_id, string ip, int port)
+        {
+            account_id = _account_id;
+            JY = new JYService(ip, port);
+            JY.Order_Done += JYService_Order_Done;
+            JY.QueryCapital_Done += JYService_QueryCapital_Done;
+            JY.NewOrder += JY_NewOrder;
+            JY.OrderChanged += JY_OrderChanged;
+            JY.NewDeal += JY_NewDeal;
+            JY.QueryPosition_Done += JYService_QueryPosition_Done;
+        }
+
+        public void Dispose()
+        {
+            JY.Dispose();
+            this.Dispose();
+        }
+
+        public void Order(Model.DB.Order order)
+        {
+            string request_id = FuncHelper.GetUniqueID().ToString();
+            HQ.HQItem hQItem = HQ.HQService.Get(order.code);
+            order.name = hQItem != null ? hQItem.Name : "";
+            Dictionary<string, string> items = new Dictionary<string, string>();
+            items.Add("code", order.code);
+            items.Add("name", order.name);
+            items.Add("price", order.price.ToString());
+            items.Add("count", order.count.ToString());
+            items.Add("type", order.type.ToString());
+            items.Add("unit_id", order.unit_id.ToString());
+            items.Add("user_id", order.user_id.ToString());
+            items.Add("platform", order.platform.ToString());
+            items.Add("deal_count", "0");
+            items.Add("deal_average_price", "0");
+            items.Add("cancel_count", "0");
+            items.Add("status", "");
+            items.Add("time", DateTime.Now.FormatTime());
+            items.Add("account_id", "0");
+            items.Add("order_no", "");
+            items.Add("remark", "");
+            TradeRA.SetFields("E_" + request_id, items);
+            TradeRA.SetExpire("E_" + request_id);
+
+            JY.Order(new Order(order.code, order.type, order.count, order.price, request_id));
+        }
+
+        private void JYService_Order_Done(object sender, Tuple<bool, string, string> e)
+        {
+            Dictionary<string, string> items = new Dictionary<string, string>();
+            items.Add("account_id", account_id.ToString());
+            items.Add("order_no", e.Item1 ? e.Item2 : "");
+            items.Add("remark", e.Item1 ? "" : e.Item2);
+            TradeRA.SetFields("E_" + e.Item3, items);
+            if (e.Item1)
+                TradeRA.KeyRename("E_" + e.Item3, "O_" + e.Item2);
+        }
+
+        private void JYService_QueryCapital_Done(object sender, Capital e)
+        {
+            string key = "A_" + account_id;
+            Dictionary<string, string> items = new Dictionary<string, string>();
+            items.Add("capital_available", e.available);
+            items.Add("capital_stock_value", e.value);
+            items.Add("capital_total", e.assets);
+            items.Add("profit", e.profit);
+            items.Add("synchronized_time", DateTime.Now.Format());
+            TradeRA.SetFields(key, items);
+        }
+
+        private void JY_NewOrder(object sender, OrderItem e)
+        {
+            string key = "O_" + e.order_no;
+            Dictionary<string, string> items = new Dictionary<string, string>();
+            items.Add("name", e.name);
+            items.Add("deal_count", e.deal_count.ToString());
+            items.Add("cancel_count", e.cancel_count.ToString());
+            items.Add("status", e.status);
+            items.Add("time", e.time.ToTime());
+            bool exists = TradeRA.KeyExists(key);
+            if (!exists)
+            {
+                items.Add("code", e.code);
+                items.Add("price", e.price.ToString());
+                items.Add("count", e.count.ToString());
+                items.Add("type", e.type.ToString());
+                items.Add("order_no", e.order_no);
+                items.Add("remark", "");
+                items.Add("unit_id", "0");
+                items.Add("user_id", "0");
+                items.Add("account_id", account_id.ToString());
+            }
+            TradeRA.SetFields(key, items);
+            if (!exists)
+            {
+                TradeRA.SetExpire(key);
+            }
+        }
+
+        private void JY_OrderChanged(object sender, OrderItem e)
+        {
+            string key = "O_" + e.order_no;
+            Dictionary<string, string> items = new Dictionary<string, string>();
+            items.Add("deal_count", e.deal_count.ToString());
+            items.Add("cancel_count", e.cancel_count.ToString());
+            items.Add("status", e.status);
+            TradeRA.SetFields(key, items);
+        }
+
+        private void JY_NewDeal(object sender, DealItem e)
+        {
+            string[] vals = TradeRA.GetFields("O_" + e.order_no, new string[4] { "unit_id", "user_id", "deal_count", "deal_average_price" });
+            string key = "D_" + e.deal_no + "_O_" + e.order_no + "_U_" + (vals[0] ?? "0");
+            if (TradeRA.KeyExists(key))
+                return;
+
+            Dictionary<string, string> items = new Dictionary<string, string>();
+            items.Add("code", e.code);
+            items.Add("name", e.name);
+            items.Add("type", e.type);
+            items.Add("count", e.count);
+            items.Add("time", e.time.ToTime());
+            items.Add("deal_no", e.deal_no);
+            items.Add("order_no", e.order_no);
+            items.Add("price", e.price);
+            items.Add("unit_id", vals[0] ?? "0");
+            items.Add("user_id", vals[1] ?? "0");
+            items.Add("account_id", account_id.ToString());
+            items.Add("commission", "0");
+            items.Add("management_fee", "0");
+            TradeRA.SetFields(key, items);
+            TradeRA.SetExpire(key);
+
+            items.Clear();
+            items.Add("deal_average_price", ((decimal.Parse(vals[3]) * decimal.Parse(vals[2]) + decimal.Parse(e.price) * decimal.Parse(e.count)) / (decimal.Parse(vals[2]) + decimal.Parse(e.count))).ToString("#0.000"));
+            TradeRA.SetFields("O_" + e.order_no, items);
+
+            //系统内成交
+            if (vals[0] != null && vals[0] != "0")
+            {
+                Model.DB.Deal deal = new Model.DB.Deal()
+                {
+                    code = e.code,
+                    name = e.name,
+                    price = decimal.Parse(e.price),
+                    count = (int)decimal.Parse(e.count),
+                    money = decimal.Parse(e.money),
+                    type = int.Parse(e.type),
+                    order_no = e.order_no,
+                    deal_no = e.deal_no,
+                    unit_id = int.Parse(vals[0]),
+                    account_id = account_id,
+                };
+                TradeBiz.NewDeal(deal);
+            }
+        }
+
+        private void JYService_QueryPosition_Done(object sender, List<PositionItem> e)
+        {
+        }
+    }
+}

@@ -1,0 +1,13 @@
+﻿using System;
+
+namespace Model.Enum
+{
+    public enum ApiResultEnum
+    {
+        Success = 1,
+        Failed = 0,
+        User_Code_Exist = -10,
+        User_Mobile_Exist = -11,
+        User_Password_Incorrect = -12,
+    }
+}

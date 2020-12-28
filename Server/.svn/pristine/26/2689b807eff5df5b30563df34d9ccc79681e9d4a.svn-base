@@ -1,0 +1,95 @@
+﻿using Common;
+using Model.Common;
+using Model.Enum;
+using System;
+using System.Collections.Generic;
+using System.Runtime.Serialization;
+
+namespace Model.DB
+{
+    [DataContract]
+    public class User : Base
+    {
+        [DataMember]
+        public string mobile { get; set; }
+
+        [DataMember]
+        public string password { get; set; }
+
+        [DataMember]
+        [UnValue]
+        public PlatformEnum[] authority_platforms { get; set; }
+
+        [DataMember]
+        [UnValue]
+        public AuthorityModuleEnum[] authority_modules { get; set; }
+
+        [DataMember]
+        public int status { get; set; }
+
+        [DataMember]
+        public int status_trade { get; set; }
+
+        [DataMember]
+        public int role { get; set; }
+
+        [UnValue]
+        public StatusEnum status_enum
+        {
+            get { return (StatusEnum)status; }
+            set { status = (int)value; }
+        }
+
+        [UnValue]
+        public StatusOrderEnum status_trade_enum
+        {
+            get { return (StatusOrderEnum)status_trade; }
+            set { status_trade = (int)value; }
+        }
+
+        [UnValue]
+        public UserRoleEnum role_enum
+        {
+            get { return (UserRoleEnum)role; }
+            set { role = (int)value; }
+        }
+
+        [DataMember]
+        public int unit_count { get; set; }
+
+        public string authority_platform
+        {
+            get { return EnumHelper.Enums2String(authority_platforms); }
+            set { authority_platforms = EnumHelper.String2Enums<PlatformEnum>(value); }
+        }
+
+        public string authority_module
+        {
+            get { return EnumHelper.Enums2String(authority_modules); }
+            set { authority_modules = EnumHelper.String2Enums<AuthorityModuleEnum>(value); }
+        }
+    }
+
+    [DataContract]
+    public class UserPassword
+    {
+        [DataMember]
+        public string id { get; set; }
+
+        [DataMember]
+        public string password_old { get; set; }
+
+        [DataMember]
+        public string password_new { get; set; }
+    }
+
+    [DataContract]
+    public class UserUnits
+    {
+        [DataMember]
+        public string id { get; set; }
+
+        [DataMember]
+        public List<int> unit_ids { get; set; }
+    }
+}

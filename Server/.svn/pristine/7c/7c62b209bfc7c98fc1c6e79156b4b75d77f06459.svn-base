@@ -1,0 +1,37 @@
+﻿using Model.Return;
+using Model.Enum;
+using Model.DB;
+using MySQLSrv;
+using Trade.Interface;
+using System;
+using System.Collections.Generic;
+using System.ServiceModel.Activation;
+using Model.Search;
+using Model.API;
+
+namespace Trade.Service
+{
+    [AspNetCompatibilityRequirements(RequirementsMode = AspNetCompatibilityRequirementsMode.Allowed)]
+    public class Query : Service, IQuery
+    {
+        public ResultLogCapital LogCapital(SearchCapitalLog model)
+        {
+            List<LogCapital> lst = LogCapitalDA.List(model);
+            return new ResultLogCapital(ApiResultEnum.Success, lst);
+        }
+
+        public ResultAccountPosition AccountPosition(SearchAccountPosition model)
+        {
+            List<AccountPosition> lst = new List<AccountPosition>();
+            lst.Add(new AccountPosition()
+            {
+                account_name = "天风1026普通",
+                code = "000001",
+                name = "平安银行",
+                count = 0,
+                count_in = 18000
+            });
+            return new ResultAccountPosition(ApiResultEnum.Success, lst);
+        }
+    }
+}

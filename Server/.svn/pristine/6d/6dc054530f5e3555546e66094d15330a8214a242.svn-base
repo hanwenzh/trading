@@ -1,0 +1,319 @@
+﻿using HQ;
+using Model.DB;
+using Model.Enum;
+using RedisSrv;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace Trade.Biz
+{
+    public class LimitBiz
+    {
+        //检查系统和用户是否满足下单条件
+        public static ApiResultEnum CheckStatus(Order model)
+        {
+            StatusOrderEnum status_order = (StatusOrderEnum)int.Parse(UserRA.Get(model.user_id.ToString(), "status_order"));
+            if (status_order == StatusOrderEnum.Forbidden)
+                return ApiResultEnum.Order_User_Forbidden_Order;
+            if (model.type_enum == OrderTypeEnum.Buy && status_order == StatusOrderEnum.NoBuying)
+                return ApiResultEnum.Order_User_NoBuying_Order;
+
+            StatusTradeEnum status_trade = (StatusTradeEnum)MonitorRA.GetStatusTrade();
+            if (status_trade == StatusTradeEnum.Closed)
+                return ApiResultEnum.Order_Closed;
+            else if (status_trade == StatusTradeEnum.Pause)
+                return ApiResultEnum.Order_Paused;
+
+            BlockInfo block = StockInfoBiz.GetBlock(model.code);
+            if (block == null)
+                return ApiResultEnum.Order_Code_Error;
+            if (model.price == 0)
+                return ApiResultEnum.Order_Price_Error;
+            if (model.count == 0)
+                return ApiResultEnum.Order_Count_Error;
+
+            return ApiResultEnum.Success;
+        }
+
+        //检查单元是否满足下单条件
+        public static ApiResultEnum CheckUnit(Order order)
+        {
+            Unit unit = UnitRA.Get("U_" + order.unit_id);
+            if (unit == null || unit.user_id != order.user_id)
+                return ApiResultEnum.Order_Unit_Null;
+
+            if (order.type_enum == OrderTypeEnum.Buy && !string.IsNullOrWhiteSpace(unit.limit_no_buying) && unit.limit_no_buying.Contains(order.code))
+                return ApiResultEnum.Order_Unit_NoBuying_Code;
+
+            if (unit.status_enum == StatusEnum.Forbidden)
+                return ApiResultEnum.Order_Unit_Forbidden;
+            if (unit.status_order_enum == StatusOrderEnum.Forbidden)
+                return ApiResultEnum.Order_Unit_Forbidden_Order;
+            if (order.type_enum == OrderTypeEnum.Buy && unit.status_order_enum == StatusOrderEnum.NoBuying)
+                return ApiResultEnum.Order_Unit_NoBuying_Order;
+
+            string[] keys = TradeRA.KeySearch("P_" + order.code + "_A_*_U_" + order.unit_id);
+            if (unit.limit_stock_count > 0)
+            {
+                if (PositionRA.GetCodeCount(order.unit_id, order.code) > unit.limit_stock_count)
+                    return ApiResultEnum.Order_Unit_Limit_Count;
+            }
+
+            if (unit.limit_order_price_enum == OrderPriceLimitEnum.In5LeverPrice)
+            {
+                decimal price_min = DataBiz.GetPriceByPriceType(order.code, OrderPriceEnum.Buy5);
+                decimal price_max = DataBiz.GetPriceByPriceType(order.code, OrderPriceEnum.Sell5);
+                HQItem hq = HQService.Get(order.code);
+                if (order.price < price_min || order.price > price_max)
+                    return ApiResultEnum.Order_Unit_Limit_Price;
+            }
+
+            if (order.type_enum == OrderTypeEnum.Buy)
+            {
+                if (unit.capital_available < order.price * order.count)
+                    return ApiResultEnum.Order_Unit_Negative_Amount;
+
+                BlockInfo block = StockInfoBiz.GetBlock(order.code);
+                if (block.block_type_enum == BlockEnum.mbm)
+                {
+                    if (unit.limit_ratio_mbm_single > 0 && order.price * order.count > unit.capital_scale * unit.limit_ratio_mbm_single)
+                        return ApiResultEnum.Order_Unit_Limit_MBM_Single;
+                }
+                else if (block.block_type_enum == BlockEnum.gem)
+                {
+                    if (unit.limit_ratio_gem_single > 0 && order.price * order.count > unit.capital_scale * unit.limit_ratio_gem_single)
+                        return ApiResultEnum.Order_Unit_Limit_GEM_Single;
+                    if (unit.limit_ratio_gem_total > 0 && order.price * order.count + unit.capital_stock_value_gem > unit.capital_scale * unit.limit_ratio_gem_total)
+                        return ApiResultEnum.Order_Unit_Limit_GEM_Total;
+                }
+                else if (block.block_type_enum == BlockEnum.sme)
+                {
+                    if (unit.limit_ratio_sme_single > 0 && order.price * order.count > unit.capital_scale * unit.limit_ratio_sme_single)
+                        return ApiResultEnum.Order_Unit_Limit_SME_Single;
+                    if (unit.limit_ratio_sme_total > 0 && order.price * order.count + unit.capital_stock_value_sme > unit.capital_scale * unit.limit_ratio_sme_total)
+                        return ApiResultEnum.Order_Unit_Limit_SME_Total;
+                }
+                else if (block.block_type_enum == BlockEnum.star)
+                {
+                    if (unit.limit_ratio_star_single > 0 && order.price * order.count > unit.capital_scale * unit.limit_ratio_star_single)
+                        return ApiResultEnum.Order_Unit_Limit_STAR_Single;
+                    if (unit.limit_ratio_star_total > 0 && order.price * order.count + unit.capital_stock_value_star > unit.capital_scale * unit.limit_ratio_star_total)
+                        return ApiResultEnum.Order_Unit_Limit_STAR_Total;
+                }
+                if (block.block_type_enum == BlockEnum.sme || block.block_type_enum == BlockEnum.gem)
+                {
+                    if (unit.limit_ratio_smg_total > 0 && order.price * order.count + unit.capital_stock_value_sme + unit.capital_stock_value_gem > unit.capital_scale * unit.limit_ratio_smg_total)
+                        return ApiResultEnum.Order_Unit_Limit_SMG_Total;
+                }
+            }
+            else
+            {
+                if (PositionRA.GetSellable(order.unit_id, order.code) < order.count)
+                    return ApiResultEnum.Order_Unit_Negative_Position;
+            }
+            return ApiResultEnum.Success;
+        }
+
+        //检查主账户是否满足下单条件
+        public static ApiResultEnum CheckAccount(Order order)
+        {
+            Account account = AccountRA.Get("A_" + order.account_id);
+            if (order.type_enum == OrderTypeEnum.Buy && !string.IsNullOrWhiteSpace(account.limit_no_buying) && account.limit_no_buying.Contains(order.code))
+                return ApiResultEnum.Order_Account_NoBuying_Code;
+
+            if (account.status_enum == StatusEnum.Forbidden)
+                return ApiResultEnum.Order_Account_Forbidden;
+            if (account.status_order_enum == StatusOrderEnum.Forbidden)
+                return ApiResultEnum.Order_Account_Forbidden_Order;
+            if (order.type_enum == OrderTypeEnum.Buy && account.status_order_enum == StatusOrderEnum.NoBuying)
+                return ApiResultEnum.Order_Account_NoBuying_Order;
+
+            if (order.type_enum == OrderTypeEnum.Buy)
+            {
+                if (account.limit_ratio_single > 0 && order.price * order.count > account.capital_initial * account.limit_ratio_single)
+                    return ApiResultEnum.Order_Account_Limit_Single;
+
+                BlockInfo block = StockInfoBiz.GetBlock(order.code);
+                if (block.block_type_enum == BlockEnum.gem)
+                {
+                    if (account.limit_ratio_gem_single > 0 && order.price * order.count > account.capital_initial * account.limit_ratio_gem_single)
+                        return ApiResultEnum.Order_Account_Limit_GEM_Single;
+                    if (account.limit_ratio_gem_total > 0 && order.price * order.count + account.capital_stock_value_gem > account.capital_initial * account.limit_ratio_gem_total)
+                        return ApiResultEnum.Order_Account_Limit_GEM_Total;
+                }
+
+                string[] keys = TradeRA.KeySearch("G_*_U_" + order.unit_id + "_A_" + order.account_id);
+                AccountGroupItem item = AccountGroupRA.Get(keys[0]);
+                if (item.capital_available > 0 && item.capital_available < order.price * order.count + item.capital_stock_value)
+                    return ApiResultEnum.Order_Account_Negative_Amount;
+            }
+            else
+            {
+                if (PositionRA.GetSellable(order.unit_id, order.code, order.account_id) < order.count)
+                    return ApiResultEnum.Order_Account_Negative_Position;
+            }
+
+            //风控通过进行冻结
+            if (order.type_enum == OrderTypeEnum.Buy)
+            {
+                string key_unit = "U_" + order.unit_id;
+                UnitRA.UpdateCapitalOrderBuy(order.price * order.count, key_unit);
+            }
+            else if (order.type_enum == OrderTypeEnum.Sell)
+            {
+                string key_position = "P_" + order.code + "_A_" + order.account_id + "_U_" + order.unit_id;
+                PositionRA.UpdateSellableOrderSell(-order.count, key_position);
+            }
+            return ApiResultEnum.Success;
+        }
+
+        //将单元的下单数量分配到主账户
+        public static Dictionary<int, int> GetOrderAccount(Order order)
+        {
+            Dictionary<int, int> order_items = new Dictionary<int, int>();
+            Unit unit = UnitRA.Get("U_" + order.unit_id);
+            List<AccountGroupItem> items = AccountGroupRA.List4Unit(order.unit_id);
+            items.OrderBy(i => i.sort_buy).ToList();
+            int total = 0;
+            if (order.type_enum == OrderTypeEnum.Buy)
+            {
+                if (unit.priority_strategy_enum == PriorityStrategyEnum.Natural)
+                    items = items.OrderBy(i => i.sort_buy).ToList();
+                else
+                    items = items.OrderByDescending(i => i.capital_available).ToList();
+                foreach (AccountGroupItem item in items)
+                {
+                    int buyable = (item.capital_available == decimal.MaxValue) ? (order.count - total) : (int)(item.capital_available / 100 / order.price) * 100;
+                    int ct = Math.Min(buyable, (order.count - total));
+                    order_items.Add(item.account_id, ct);
+                    total += ct;
+                    if (ct == order.count)
+                        break;
+                }
+            }
+            else
+            {
+                items = items.OrderBy(i => i.sort_sell).ToList();
+                foreach (AccountGroupItem item in items)
+                {
+                    int sellable = PositionRA.GetSellable(order.unit_id, order.code, item.account_id);
+                    int ct = Math.Min(sellable, (order.count - total));
+                    order_items.Add(item.account_id, ct);
+                    total += ct;
+                    if (ct == order.count)
+                        break;
+                }
+            }
+            return order_items;
+        }
+
+        //获取单元最大可下单数量
+        public static int GetUnitCount(Order order)
+        {
+            Unit unit = UnitRA.Get("U_" + order.unit_id);
+            if (unit == null)
+                return 0;
+
+            if (order.type_enum == OrderTypeEnum.Buy && !string.IsNullOrWhiteSpace(unit.limit_no_buying) && unit.limit_no_buying.Contains(order.code))
+                return 0;
+
+            if (unit.status_enum == StatusEnum.Forbidden)
+                return 0;
+            if (unit.status_order_enum == StatusOrderEnum.Forbidden)
+                return 0;
+            if (order.type_enum == OrderTypeEnum.Buy && unit.status_order_enum == StatusOrderEnum.NoBuying)
+                return 0;
+
+            string[] keys = TradeRA.KeySearch("P_" + order.code + "_A_*_U_" + order.unit_id);
+            if (unit.limit_stock_count > 0)
+            {
+                if (PositionRA.GetCodeCount(order.unit_id, order.code) > unit.limit_stock_count)
+                    return 0;
+            }
+
+            if (order.type_enum == OrderTypeEnum.Buy)
+            {
+                decimal count = unit.capital_available / order.price;
+                BlockInfo block = StockInfoBiz.GetBlock(order.code);
+                if (block.block_type_enum == BlockEnum.mbm)
+                {
+                    if (unit.limit_ratio_mbm_single > 0)
+                        count = Math.Min(count, unit.capital_scale * unit.limit_ratio_mbm_single / order.price);
+                }
+                else if (block.block_type_enum == BlockEnum.gem)
+                {
+                    if (unit.limit_ratio_gem_single > 0)
+                        count = Math.Min(count, unit.capital_scale * unit.limit_ratio_gem_single / order.price);
+                    if (unit.limit_ratio_gem_total > 0)
+                        count = Math.Min(count, (unit.capital_scale * unit.limit_ratio_gem_total - unit.capital_stock_value_gem) / order.price);
+                }
+                else if (block.block_type_enum == BlockEnum.sme)
+                {
+                    if (unit.limit_ratio_sme_single > 0)
+                        count = Math.Min(count, unit.capital_scale * unit.limit_ratio_sme_single / order.price);
+                    if (unit.limit_ratio_sme_total > 0)
+                        count = Math.Min(count, (unit.capital_scale * unit.limit_ratio_sme_total - unit.capital_stock_value_sme) / order.price);
+                }
+                else if (block.block_type_enum == BlockEnum.star)
+                {
+                    if (unit.limit_ratio_star_single > 0)
+                        count = Math.Min(count, unit.capital_scale * unit.limit_ratio_star_single / order.price);
+                    if (unit.limit_ratio_star_total > 0)
+                        count = Math.Min(count, (unit.capital_scale * unit.limit_ratio_star_total - unit.capital_stock_value_star) / order.price);
+                }
+                if (block.block_type_enum == BlockEnum.sme || block.block_type_enum == BlockEnum.gem)
+                {
+                    if (unit.limit_ratio_smg_total > 0)
+                        count = Math.Min(count, (unit.capital_scale * unit.limit_ratio_smg_total - unit.capital_stock_value_sme - unit.capital_stock_value_gem) / order.price);
+                }
+                return (int)Math.Ceiling(count / 100) * 100;
+            }
+            else
+            {
+                return PositionRA.GetSellable(order.unit_id, order.code);
+            }
+        }
+
+        //获取主账户最大可下单数量
+        public static int GetAccountCount(Order order)
+        {
+            Account account = AccountRA.Get("A_" + order.account_id);
+            if (order.type_enum == OrderTypeEnum.Buy && !string.IsNullOrWhiteSpace(account.limit_no_buying) && account.limit_no_buying.Contains(order.code))
+                return 0;
+
+            if (account.status_enum == StatusEnum.Forbidden)
+                return 0;
+            if (account.status_order_enum == StatusOrderEnum.Forbidden)
+                return 0;
+            if (order.type_enum == OrderTypeEnum.Buy && account.status_order_enum == StatusOrderEnum.NoBuying)
+                return 0;
+
+            if (order.type_enum == OrderTypeEnum.Buy)
+            {
+                decimal count = account.capital_initial / order.price;
+                if (account.limit_ratio_single > 0)
+                    count = Math.Min(count, account.capital_initial * account.limit_ratio_single / order.price);
+
+                BlockInfo block = StockInfoBiz.GetBlock(order.code);
+                if (block.block_type_enum == BlockEnum.gem)
+                {
+                    if (account.limit_ratio_gem_single > 0)
+                        count = Math.Min(count, account.capital_initial * account.limit_ratio_gem_single / order.price);
+                    if (account.limit_ratio_gem_total > 0)
+                        count = Math.Min(count, (account.capital_initial * account.limit_ratio_gem_total - account.capital_stock_value_gem) / order.price);
+                }
+
+                string[] keys = TradeRA.KeySearch("G_*_U_" + order.unit_id + "_A_" + order.account_id);
+                AccountGroupItem item = AccountGroupRA.Get(keys[0]);
+                if (item.capital_available > 0)
+                    count = Math.Min(count, (item.capital_available - item.capital_stock_value) / order.price);
+                return (int)Math.Ceiling(count / 100) * 100;
+            }
+            else
+            {
+                return PositionRA.GetSellable(order.unit_id, order.code, order.account_id);
+            }
+        }
+    }
+}

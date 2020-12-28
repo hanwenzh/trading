@@ -1,0 +1,7 @@
+2020-12-09 10:47:12.4060 ERROR  SignalR启动失败  Global.Application_Start => MessageService.Init => NLog.Error
+2020-12-09 10:50:17.5014 ERROR  SignalR启动失败  Global.Application_Start => MessageService.Init => NLog.Error
+2020-12-09 15:20:07.2582 ERROR  SignalR启动失败  Global.Application_Start => MessageService.Init => NLog.Error
+2020-12-09 15:20:50.1584 ERROR  SignalR启动失败  Global.Application_Start => MessageService.Init => NLog.Error
+2020-12-09 15:57:04.9749 ERROR  SignalR启动失败  Global.Application_Start => MessageService.Init => NLog.Error
+2020-12-09 16:01:25.5702 ERROR  执行Table查询失败  UserDA.ListParents => MySQLHelper.GetDataTable => NLog.Error
+2020-12-09 16:01:25.5702 INFO  单元[unit001]资产已低于预警线，被禁止买入。总资产：0.00  TradeBiz.Run => TradeBiz.RunUnitCapitalMonitor => NLog.Info

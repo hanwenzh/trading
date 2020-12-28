@@ -1,0 +1,33 @@
+﻿using System;
+using System.Runtime.Serialization;
+
+namespace Model.Common
+{
+    [DataContract]
+    public class Search
+    {
+        [DataMember]
+        public int unit_id { get; set; }
+
+        [DataMember]
+        public string from { get; set; }
+
+        [DataMember]
+        public string to { get; set; }
+
+        public string Where()
+        {
+            string where = " AND unit_id = " + unit_id;
+
+            if (!string.IsNullOrWhiteSpace(from))
+            {
+                where += " AND time >= '" + from + "'";
+            }
+            if (!string.IsNullOrWhiteSpace(to))
+            {
+                where += " AND time <= '" + to + " 23:59:59'";
+            }
+            return where;
+        }
+    }
+}

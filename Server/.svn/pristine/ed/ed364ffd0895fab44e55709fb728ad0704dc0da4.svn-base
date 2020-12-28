@@ -1,0 +1,34 @@
+﻿using Common;
+using System;
+using System.Runtime.Serialization;
+
+namespace Model.Search
+{
+    [DataContract]
+    public class Search : ISearch
+    {
+        [DataMember]
+        public string from { get; set; }
+
+        [DataMember]
+        public string to { get; set; }
+
+        public DateTime from_dt { get { return DateTime.Parse(from); } set { } }
+
+        public DateTime to_dt { get { return DateTime.Parse(to); } set { } }
+
+        public string Where()
+        {
+            string where = "";
+            if (from != null)
+            {
+                where += " AND time_dt >= '" + from + "'";
+            }
+            if (to != null)
+            {
+                where += " AND time_dt <= '" + to + " 23:59:59'";
+            }
+            return where;
+        }
+    }
+}

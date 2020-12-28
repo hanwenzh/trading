@@ -1,0 +1,32 @@
+﻿using Model.Return;
+using System;
+using System.ServiceModel;
+using System.ServiceModel.Web;
+using Model.Search;
+
+namespace Trade.Interface
+{
+    [ServiceContract]
+    public interface IQuery
+    {
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        ResultLogCapital ListLogCapital(SearchCapitalLog model);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        ResultOrder ListOrder(SearchUnit model);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        ResultDeal ListDeal(SearchUnit model);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        ResultPosition ListPosition(int unit_id);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        ResultUnitCapital UnitCapital(int unit_id);
+    }
+}

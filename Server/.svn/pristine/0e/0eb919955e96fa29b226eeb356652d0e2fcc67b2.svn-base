@@ -1,0 +1,29 @@
+﻿using System;
+using System.Runtime.Serialization;
+
+namespace Model.DB
+{
+    [DataContract]
+    public class AccountGroupItem
+    {
+        public int account_group_id { get; set; }
+
+        [DataMember]
+        public int account_id { get; set; }
+
+        [DataMember]
+        public int account_code { get; set; }
+
+        [DataMember]
+        public int account_name { get; set; }
+
+        [DataMember]
+        public decimal capital_available { get; set; }
+
+        [DataMember]
+        public int sort_buy { get; set; }
+
+        [DataMember]
+        public int sort_sell { get; set; }
+    }
+}

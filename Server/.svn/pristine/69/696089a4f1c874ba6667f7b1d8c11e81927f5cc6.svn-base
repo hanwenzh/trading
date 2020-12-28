@@ -1,0 +1,107 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{280135CF-7018-4F00-B422-165DA76E96EA}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>Model</RootNamespace>
+    <AssemblyName>Model</AssemblyName>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Newtonsoft.Json, Version=12.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.12.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="API\AccountPosition.cs" />
+    <Compile Include="API\PositionTransfer.cs" />
+    <Compile Include="API\UnitCapital.cs" />
+    <Compile Include="DB\Position.cs" />
+    <Compile Include="DB\LogTrade.cs" />
+    <Compile Include="DB\Deal.cs" />
+    <Compile Include="DB\Order.cs" />
+    <Compile Include="Enum\OrderTypeEnum.cs" />
+    <Compile Include="Enum\StatusTradeEnum.cs" />
+    <Compile Include="Return\ResultDeal.cs" />
+    <Compile Include="Return\ResultUnitCapital.cs" />
+    <Compile Include="Return\ResultPosition.cs" />
+    <Compile Include="Return\ResultOrder.cs" />
+    <Compile Include="Return\ResultLogTrade.cs" />
+    <Compile Include="Return\ResultAccountPosition.cs" />
+    <Compile Include="Return\ResultInt.cs" />
+    <Compile Include="Return\Base.cs" />
+    <Compile Include="Common\Base.cs" />
+    <Compile Include="Search\SearchCapitalLog.cs" />
+    <Compile Include="Search\Search.cs" />
+    <Compile Include="Search\SearchUnit.cs" />
+    <Compile Include="Common\StatusOrder.cs" />
+    <Compile Include="Common\Status.cs" />
+    <Compile Include="Common\UnValueAttribute.cs" />
+    <Compile Include="Enum\CapitalLogTypeEnum.cs" />
+    <Compile Include="Enum\ActionEnum.cs" />
+    <Compile Include="Enum\PriorityStrategyEnum.cs" />
+    <Compile Include="Enum\StatusOrderEnum.cs" />
+    <Compile Include="Enum\UserRoleEnum.cs" />
+    <Compile Include="Enum\ApiResultEnum.cs" />
+    <Compile Include="Enum\AuthorityModuleEnum.cs" />
+    <Compile Include="Enum\PlatformEnum.cs" />
+    <Compile Include="Enum\StatusEnum.cs" />
+    <Compile Include="DB\AccountGroup.cs" />
+    <Compile Include="DB\Account.cs" />
+    <Compile Include="DB\AccountGroupItem.cs" />
+    <Compile Include="DB\LogCapital.cs" />
+    <Compile Include="DB\Unit.cs" />
+    <Compile Include="DB\User.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Return\ResultLogCapital.cs" />
+    <Compile Include="Return\ResultUnit.cs" />
+    <Compile Include="Return\ResultAccountGroup.cs" />
+    <Compile Include="Return\ResultBase.cs" />
+    <Compile Include="Return\ResultAccount.cs" />
+    <Compile Include="Return\ResultUser.cs" />
+    <Compile Include="Return\ResultLogin.cs" />
+    <Compile Include="Return\Result.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Common\Common.csproj">
+      <Project>{88913d51-1f0f-4749-8191-8389d155b116}</Project>
+      <Name>Common</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

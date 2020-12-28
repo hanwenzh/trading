@@ -1,0 +1,29 @@
+﻿using System;
+using System.Runtime.Serialization;
+
+namespace Model.Search
+{
+    [DataContract]
+    public class Search : ISearch
+    {
+        [DataMember]
+        public string from { get; set; }
+
+        [DataMember]
+        public string to { get; set; }
+
+        public string Where()
+        {
+            string where = "";
+            if (!string.IsNullOrWhiteSpace(from))
+            {
+                where += " AND time >= '" + from + "'";
+            }
+            if (!string.IsNullOrWhiteSpace(to))
+            {
+                where += " AND time <= '" + to + " 23:59:59'";
+            }
+            return where;
+        }
+    }
+}

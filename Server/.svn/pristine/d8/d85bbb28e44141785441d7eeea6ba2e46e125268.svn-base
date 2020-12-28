@@ -1,0 +1,35 @@
+﻿using Model.API;
+using Model.Common;
+using Model.MySQL;
+using System;
+using System.Collections.Generic;
+using System.ServiceModel;
+using System.ServiceModel.Web;
+
+namespace Trade.Interface
+{
+    [ServiceContract]
+    [ServiceKnownType(typeof(List<AccountGroup>))]
+    public interface IAccountGroup
+    {
+        [OperationContract]
+        [WebGet]
+        Result List();
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        Result Add(AccountGroup model);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        Result Update(AccountGroup model);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        Result UpdateItems(AccountGroup model);
+
+        [OperationContract]
+        [WebInvoke(Method = "POST", RequestFormat = WebMessageFormat.Json)]
+        Result Delete(AccountGroup model);
+    }
+}

@@ -1,0 +1,114 @@
+﻿using Model.Common;
+using Model.Enum;
+using Model.DB;
+using MySQLSrv.Helper;
+using System;
+using System.Collections.Generic;
+using System.Data;
+using MySql.Data.MySqlClient;
+
+namespace MySQLSrv
+{
+    public class UnitDA
+    {
+        public static List<Unit> List()
+        {
+            string sql = "SELECT * FROM unit";
+            DataTable dt = MySQLHelper.GetDataTable(sql, null);
+            List<Unit> units = DAHelper.GetListByDataTable<Unit>(dt);
+            return units;
+        }
+
+        public static List<Base> List4Filter()
+        {
+            string sql = "SELECT id, `code`,`name` FROM unit";
+            DataTable dt = MySQLHelper.GetDataTable(sql, null);
+            List<Base> units = DAHelper.GetListByDataTable<Base>(dt);
+            return units;
+        }
+
+        public static List<Base> List4User(string user_id)
+        {
+            MySqlParameter[] msps = {
+                new MySqlParameter("@user_id", user_id)
+            };
+            string sql = "SELECT id, `code`,`name` FROM unit WHERE user_id=@user_id";
+            DataTable dt = MySQLHelper.GetDataTable(sql, msps);
+            List<Base> units = DAHelper.GetListByDataTable<Base>(dt);
+            return units;
+        }
+
+        public static ApiResultEnum Add(Unit model, ref int id, string _operator)
+        {
+            string sql = "SELECT `code` FROM unit WHERE `code` = @code";
+            object obj = MySQLHelper.ExecuteScalar(sql, DAHelper.CreateParams(sql, model));
+            if (obj != null)
+            {
+                return ApiResultEnum.Code_Exist;
+            }
+
+            sql = "INSERT INTO unit(code,name,area,broker,risk_controller,account_group_id,lever,ratio_management_fee,ratio_commission,ratio_software_fee,limit_stock_count,limit_ratio_mbm_single,limit_ratio_gem_single,limit_ratio_gem_total,limit_ratio_sme_single,limit_ratio_sme_total,limit_ratio_smg_total,limit_ratio_star_single,limit_ratio_star_total,ratio_warning,ratio_close_position,limit_no_buying,limit_order_price) VALUES(@code,@name,@area,@broker,@risk_controller,@account_group_id,@lever,@ratio_management_fee,@ratio_commission,@ratio_software_fee,@limit_stock_count,@limit_ratio_mbm_single,@limit_ratio_gem_single,@limit_ratio_gem_total,@limit_ratio_sme_single,@limit_ratio_sme_total,@limit_ratio_smg_total,@limit_ratio_star_single,@limit_ratio_star_total,@ratio_warning,@ratio_close_position,@limit_no_buying,@limit_order_price); SELECT LAST_INSERT_ID()";
+            obj = MySQLHelper.ExecuteScalar(sql, DAHelper.CreateParams(sql, model));
+            if (obj != null)
+            {
+                id = int.Parse(obj.ToString());
+                LogActionDA.Add(_operator, string.Format("创建单元{0}({1})", id, model.code));
+                return ApiResultEnum.Success;
+            }
+            else
+                return ApiResultEnum.Failed;
+        }
+
+        public static ApiResultEnum Update(Unit model)
+        {
+            string sql = "SELECT `code` FROM unit WHERE id <> @id AND `code` = @code";
+            object obj = MySQLHelper.ExecuteScalar(sql, DAHelper.CreateParams(sql, model));
+            if (obj != null)
+            {
+                return ApiResultEnum.Code_Exist;
+            }
+
+            sql = "UPDATE unit SET code=@code,name=@name,area=@area,broker=@broker,risk_controller=@risk_controller,opened_time=@opened_time,account_group_id=@account_group_id,lever=@lever,ratio_management_fee=@ratio_management_fee,ratio_commission=@ratio_commission,ratio_software_fee=@ratio_software_fee,limit_stock_count=@limit_stock_count,limit_ratio_mbm_single=@limit_ratio_mbm_single,limit_ratio_gem_single=@limit_ratio_gem_single,limit_ratio_gem_total=@limit_ratio_gem_total,limit_ratio_sme_single=@limit_ratio_sme_single,limit_ratio_sme_total=@limit_ratio_sme_total,limit_ratio_smg_total=@limit_ratio_smg_total,limit_ratio_star_single=@limit_ratio_star_single,limit_ratio_star_total=@limit_ratio_star_total,ratio_warning=@ratio_warning,ratio_close_position=@ratio_close_position,limit_no_buying=@limit_no_buying,limit_order_price=@limit_order_price WHERE id =@id";
+            if (MySQLHelper.ExecuteNonQuery(sql, DAHelper.CreateParams(sql, model)) > 0)
+                return ApiResultEnum.Success;
+            return ApiResultEnum.Failed;
+        }
+
+        public static ApiResultEnum UpdateStatus(Status model)
+        {
+            string sql = "UPDATE unit SET `status`=@status WHERE id=@id";
+            if (MySQLHelper.ExecuteNonQuery(sql, DAHelper.CreateParams(sql, model)) > 0)
+                return ApiResultEnum.Success;
+            return ApiResultEnum.Failed;
+        }
+
+        public static ApiResultEnum UpdateUserID(UserUnits model)
+        {
+            List<string> sqls = new List<string>();
+            sqls.Add(string.Format("UPDATE unit SET user_id = NULL WHERE user_id = {0}", model.id));
+            sqls.Add(string.Format("UPDATE unit SET user_id = {0} WHERE id = {1}", model.id, string.Join(",", model.unit_ids)));
+            if (MySQLHelper.ExecuteNonQuery(sqls))
+                return ApiResultEnum.Success;
+            return ApiResultEnum.Failed;
+        }
+
+        public static ApiResultEnum UpdateRatioFreezing(Unit model)
+        {
+            string sql = "UPDATE unit SET ratio_freezing=@ratio_freezing WHERE id=@id";
+            if (MySQLHelper.ExecuteNonQuery(sql, DAHelper.CreateParams(sql, model)) > 0)
+                return ApiResultEnum.Success;
+            return ApiResultEnum.Failed;
+        }
+
+        public static ApiResultEnum Delete(Unit model, string _operator)
+        {
+            string sql = "DELETE FROM unit WHERE id=@id";
+            if (MySQLHelper.ExecuteNonQuery(sql, DAHelper.CreateParams(sql, model)) > 0)
+            {
+                LogActionDA.Add(_operator, string.Format("删除单元{0}({1})", model.id, model.code));
+                return ApiResultEnum.Success;
+            }
+            return ApiResultEnum.Failed;
+        }
+    }
+}

@@ -1,0 +1,15 @@
+2020-12-04 09:41:02.8858 ERROR  SignalR启动失败  Global.Application_Start => MessageService.Init => NLog.Error
+2020-12-04 09:56:23.4568 INFO  SignalR启动成功  Global.Application_Start => MessageService.Init => NLog.Info
+2020-12-04 10:01:19.5102 INFO  SignalR启动成功  Global.Application_Start => MessageService.Init => NLog.Info
+2020-12-04 10:14:17.7646 ERROR  SignalR启动失败  Global.Application_Start => MessageService.Init => NLog.Error
+2020-12-04 10:32:45.2877 ERROR  SignalR启动失败  Global.Application_Start => MessageService.Init => NLog.Error
+2020-12-04 10:40:42.0711 ERROR  SignalR启动失败  Global.Application_Start => MessageService.Init => NLog.Error
+2020-12-04 12:21:48.1437 INFO  SignalR启动成功  Global.Application_Start => MessageService.Init => NLog.Info
+2020-12-04 14:26:22.7237 INFO  SignalR启动成功  Global.Application_Start => MessageService.Init => NLog.Info
+2020-12-04 14:29:34.0913 INFO  SignalR启动成功  Global.Application_Start => MessageService.Init => NLog.Info
+2020-12-04 14:59:52.0203 INFO  SignalR启动成功  Global.Application_Start => MessageService.Init => NLog.Info
+2020-12-04 15:28:45.4982 ERROR  SignalR启动失败  Global.Application_Start => MessageService.Init => NLog.Error
+2020-12-04 15:29:25.3280 ERROR  SignalR启动失败  Global.Application_Start => MessageService.Init => NLog.Error
+2020-12-04 15:44:48.2039 ERROR  SignalR启动失败  Global.Application_Start => MessageService.Init => NLog.Error
+2020-12-04 16:08:17.5210 ERROR  SignalR启动失败  Global.Application_Start => MessageService.Init => NLog.Error
+2020-12-04 16:08:19.0137 ERROR  SignalR启动失败  System.SignalRInit => MessageService.Init => NLog.Error

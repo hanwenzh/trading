@@ -1,0 +1,107 @@
+﻿using Model.Common;
+using Model.Enum;
+using System;
+using System.Runtime.Serialization;
+
+namespace Model.DB
+{
+    [DataContract]
+    public class Unit : Base
+    {
+
+        [DataMember]
+        public string area { get; set; }
+
+        [DataMember]
+        public string broker { get; set; }
+
+        [DataMember]
+        public string risk_controller { get; set; }
+
+        [DataMember]
+        public string opened_time { get; set; }
+
+        [DataMember]
+        public int account_group_id { get; set; }
+
+        [DataMember]
+        public decimal deposit { get; set; }
+
+        [DataMember]
+        public decimal lever { get; set; }
+
+        [DataMember]
+        public decimal capital_scale { get; set; }
+
+        [DataMember]
+        public decimal ratio_freezing { get; set; }
+
+        [DataMember]
+        public decimal ratio_management_fee { get; set; }
+
+        [DataMember]
+        public decimal ratio_commission { get; set; }
+
+        [DataMember]
+        public decimal ratio_software_fee { get; set; }
+
+        [DataMember]
+        public int limit_stock_count { get; set; }
+
+        [DataMember]
+        public decimal limit_ratio_mbm_single { get; set; }
+
+        [DataMember]
+        public decimal limit_ratio_gem_single { get; set; }
+
+        [DataMember]
+        public decimal limit_ratio_gem_total { get; set; }
+
+        [DataMember]
+        public decimal limit_ratio_sme_single { get; set; }
+
+        [DataMember]
+        public decimal limit_ratio_sme_total { get; set; }
+
+        [DataMember]
+        public decimal limit_ratio_smg_total { get; set; }
+
+        [DataMember]
+        public decimal limit_ratio_star_single { get; set; }
+
+        [DataMember]
+        public decimal limit_ratio_star_total { get; set; }
+
+        [DataMember]
+        public decimal ratio_warning { get; set; }
+
+        [DataMember]
+        public decimal ratio_close_position { get; set; }
+
+        [DataMember]
+        public string limit_no_buying { get; set; }
+
+        [DataMember]
+        public int limit_order_price { get; set; }
+
+        [DataMember]
+        public int status { get; set; }
+
+        public decimal capital_balance { get; set; }
+        public decimal capital_stock_value { get; set; }
+        public decimal capital_freezing { get; set; }
+
+        [DataMember]
+        public decimal capital_total { get { return capital_balance + capital_stock_value; } set { } }
+
+        [DataMember]
+        public decimal capital_available { get { return capital_balance - capital_freezing; } set { } }
+
+        [UnValue]
+        public StatusEnum status_enum
+        {
+            get { return (StatusEnum)status; }
+            set { status = (int)value; }
+        }
+    }
+}

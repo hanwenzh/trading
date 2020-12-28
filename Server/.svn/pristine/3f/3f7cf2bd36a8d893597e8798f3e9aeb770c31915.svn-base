@@ -1,0 +1,23 @@
+﻿using Model.DB;
+using Model.Enum;
+using System;
+using System.Runtime.Serialization;
+
+namespace Model.Return
+{
+    [DataContract]
+    public class ResultLogin : Result
+    {
+        [DataMember]
+        public User Data { get; set; }
+
+        [DataMember]
+        public string Token { get; set; }
+
+        public ResultLogin(ApiResultEnum code, User data, string token) : base(code)
+        {
+            Data = data;
+            Token = token;
+        }
+    }
+}

@@ -1,0 +1,35 @@
+﻿using Model.Enum;
+using Trade.Interface;
+using System;
+using System.ServiceModel;
+using System.Collections.Generic;
+using System.Linq;
+using Trade.Biz;
+using System.Threading.Tasks;
+using System.Threading;
+
+namespace Trade.Service
+{
+    public class Message : IMessage
+    {
+        public void Subscribe(string token)
+        {
+            INotice notice = OperationContext.Current.GetCallbackChannel<INotice>();
+            MessageBiz.Subscribe(token, notice);
+
+            Send();
+        }
+
+        private async void Send()
+        {
+            await Task.Run(() =>
+            {
+                while (true)
+                {
+                    Thread.Sleep(1000);
+                    MessageBiz.Send("2", DateTime.Now.ToString("HH:mm:dd"));
+                }
+            });
+        }
+    }
+}

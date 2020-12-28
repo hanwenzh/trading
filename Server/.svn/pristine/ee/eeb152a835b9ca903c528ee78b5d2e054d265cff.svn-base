@@ -1,0 +1,163 @@
+﻿using Model.Common;
+using Model.Enum;
+using Model.MySQL;
+using MySQLSrv.Helper;
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Linq;
+
+namespace MySQLSrv
+{
+    public class UserDA
+    {
+        public static List<User> List()
+        {
+            string sql = "SELECT * FROM v_user WHERE role <> 99";
+            DataTable dt = MySQLHelper.GetDataTable(sql, null);
+            List<User> users = DAHelper.GetListByDataTable<User>(dt);
+            return users;
+        }
+
+        public static ApiResultEnum Login(ref User user, int platform)
+        {
+            string sql = "SELECT * FROM user WHERE `code` = @code AND `password` = @password";
+            DataTable dt = MySQLHelper.GetDataTable(sql, DAHelper.CreateParams(sql, user));
+            if(dt == null)
+            {
+                return ApiResultEnum.Failed;
+            }
+            else if (dt.Rows.Count == 0)
+            {
+                return ApiResultEnum.User_Code_Password_Mismatch;
+            }
+            user = DAHelper.GetModelByDataRow<User>(dt.Rows[0]);
+            if (user.role_enum != UserRoleEnum.Administrator && user.status_enum == StatusEnum.Forbidden)
+            {
+                return ApiResultEnum.Forbidden;
+            }
+            if(user.role_enum != UserRoleEnum.Administrator && !user.authority_platforms.Contains((AuthorityPlatformEnum)platform))
+            {
+                return ApiResultEnum.User_Platform_Incorrect;
+            }
+            user.password = null;
+            return ApiResultEnum.Success;
+        }
+
+        public static ApiResultEnum Add(User model, ref int id, string _operator)
+        {
+            string sql = "SELECT * FROM `user` WHERE `code` = @code OR mobile = @mobile";
+            DataTable dt = MySQLHelper.GetDataTable(sql, DAHelper.CreateParams(sql, model));
+            if (dt == null)
+            {
+                return ApiResultEnum.Failed;
+            }
+            else if (dt.Rows.Count > 0)
+            {
+                User user = DAHelper.GetModelByDataRow<User>(dt.Rows[0]);
+                if (user.code == model.code)
+                    return ApiResultEnum.Code_Exist;
+                else if (user.mobile == model.mobile)
+                    return ApiResultEnum.User_Mobile_Exist;
+            }
+
+            sql = "INSERT INTO `user`(`code`,`name`,mobile,`password`) VALUES(@code,@name,@mobile,@password); SELECT LAST_INSERT_ID()";
+            object obj = MySQLHelper.ExecuteScalar(sql, DAHelper.CreateParams(sql, model));
+            if (obj != null)
+            {
+                id = int.Parse(obj.ToString());
+                LogActionDA.Add(_operator, string.Format("创建用户{0}({1})", id, model.code));
+                return ApiResultEnum.Success;
+            }
+            else
+                return ApiResultEnum.Failed;
+        }
+
+        public static ApiResultEnum Update(User model)
+        {
+            string sql = "SELECT * FROM `user` WHERE id <> @id AND (`code` = @code OR mobile = @mobile)";
+            DataTable dt = MySQLHelper.GetDataTable(sql, DAHelper.CreateParams(sql, model));
+            if (dt == null)
+            {
+                return ApiResultEnum.Failed;
+            }
+            else if (dt.Rows.Count > 0)
+            {
+                User user = DAHelper.GetModelByDataRow<User>(dt.Rows[0]);
+                if (user.code == model.code)
+                    return ApiResultEnum.Code_Exist;
+                else if (user.mobile == model.mobile)
+                    return ApiResultEnum.User_Mobile_Exist;
+            }
+
+            sql = "UPDATE `user` SET `code`=@code,`name`=@name,mobile=@mobile WHERE id=@id";
+            if (MySQLHelper.ExecuteNonQuery(sql, DAHelper.CreateParams(sql, model)) > 0)
+                return ApiResultEnum.Success;
+            return ApiResultEnum.Failed;
+        }
+
+        public static ApiResultEnum Authority(User model)
+        {
+            string sql = "UPDATE `user` SET authority_platform=@authority_platform,authority_module=@authority_module WHERE id=@id";
+            if (MySQLHelper.ExecuteNonQuery(sql, DAHelper.CreateParams(sql, model)) > 0)
+                return ApiResultEnum.Success;
+            return ApiResultEnum.Failed;
+        }
+
+        public static ApiResultEnum UpdatePassword(UserPassword model)
+        {
+            string sql = "SELECT * FROM `user` WHERE id = @id AND `password`=@password_old";
+            DataTable dt = MySQLHelper.GetDataTable(sql, DAHelper.CreateParams(sql, model));
+            if (dt == null)
+            {
+                return ApiResultEnum.Failed;
+            }
+            else if (dt.Rows.Count > 0)
+            {
+                User user = DAHelper.GetModelByDataRow<User>(dt.Rows[0]);
+                if (user.password != model.password_old)
+                    return ApiResultEnum.User_Password_Incorrect;
+            }
+
+            sql = "UPDATE `user` SET `password`=@password_new WHERE id=@id";
+            if (MySQLHelper.ExecuteNonQuery(sql, DAHelper.CreateParams(sql, model)) > 0)
+                return ApiResultEnum.Success;
+            return ApiResultEnum.Failed;
+        }
+
+        public static ApiResultEnum RestPassword(UserPassword model)
+        {
+            string sql = "UPDATE `user` SET `password`=@password_new WHERE id=@id";
+            if (MySQLHelper.ExecuteNonQuery(sql, DAHelper.CreateParams(sql, model)) > 0)
+                return ApiResultEnum.Success;
+            return ApiResultEnum.Failed;
+        }
+
+        public static ApiResultEnum UpdateStatus(Status model)
+        {
+            string sql = "UPDATE `user` SET `status`=@status WHERE id=@id";
+            if (MySQLHelper.ExecuteNonQuery(sql, DAHelper.CreateParams(sql, model)) > 0)
+                return ApiResultEnum.Success;
+            return ApiResultEnum.Failed;
+        }
+
+        public static ApiResultEnum UpdateStatusTrade(StatusTrade model)
+        {
+            string sql = "UPDATE `user` SET status_trade=@status WHERE id=@id";
+            if (MySQLHelper.ExecuteNonQuery(sql, DAHelper.CreateParams(sql, model)) > 0)
+                return ApiResultEnum.Success;
+            return ApiResultEnum.Failed;
+        }
+
+        public static ApiResultEnum Delete(User model, string _operator)
+        {
+            string sql = "DELETE FROM `user` WHERE id=@id";
+            if (MySQLHelper.ExecuteNonQuery(sql, DAHelper.CreateParams(sql, model)) > 0)
+            {
+                LogActionDA.Add(_operator, string.Format("删除用户{0}({1})", model.id, model.code));
+                return ApiResultEnum.Success;
+            }
+            return ApiResultEnum.Failed;
+        }
+    }
+}

@@ -1,0 +1,83 @@
+﻿using System;
+using System.ServiceModel.Description;
+using System.ServiceModel.Dispatcher;
+using System.ServiceModel.Channels;
+using System.ServiceModel;
+using System.ServiceModel.Configuration;
+using System.ServiceModel.Web;
+using RedisSrv;
+using Model.Enum;
+
+namespace Trade.Code
+{
+    public class TokenDispatchMessageInspector : IDispatchMessageInspector
+    {
+        public object AfterReceiveRequest(ref Message request, IClientChannel channel, InstanceContext instanceContext)
+        {
+            string platform = WebOperationContext.Current.IncomingRequest.Headers["platform"];
+            string token = WebOperationContext.Current.IncomingRequest.Headers["token"];
+            if (string.IsNullOrWhiteSpace(token) || string.IsNullOrWhiteSpace(platform))
+            {
+                throw new ApiException(ApiResultEnum.InvalidRequest, "Invalid Request");
+            }
+            else
+            {
+                string[] uit = token.Split('-');
+                string user_token = UserRA.Get(uit[0], "platform_" + platform);
+                if (string.IsNullOrWhiteSpace(user_token) || uit[1] != user_token)
+                {
+                    throw new ApiException(ApiResultEnum.NotLoggedIn, "Not Logged In");
+                }
+            }
+            return null;
+        }
+
+        public void BeforeSendReply(ref Message reply, object correlationState)
+        {
+        }
+    }
+
+    public class TokenEndpointBehavior : IEndpointBehavior
+    {
+        public void AddBindingParameters(ServiceEndpoint endpoint, BindingParameterCollection bindingParameters)
+        {
+        }
+
+        public void ApplyClientBehavior(ServiceEndpoint endpoint, ClientRuntime clientRuntime)
+        {
+        }
+
+        public void ApplyDispatchBehavior(ServiceEndpoint endpoint, EndpointDispatcher endpointDispatcher)
+        {
+            ChannelDispatcher channelDispatcher = endpointDispatcher.ChannelDispatcher;
+            if (channelDispatcher != null)
+            {
+                foreach (EndpointDispatcher ed in channelDispatcher.Endpoints)
+                {
+                    ed.DispatchRuntime.MessageInspectors.Add(new TokenDispatchMessageInspector());
+                }
+                channelDispatcher.ErrorHandlers.Add(new GlobalErrorHandle());
+            }
+        }
+
+        public void Validate(ServiceEndpoint endpoint)
+        {
+        }
+    }
+
+    public class TokenBehaviorExtensionElement : BehaviorExtensionElement
+    {
+        protected override object CreateBehavior()
+        {
+            return new TokenEndpointBehavior();
+        }
+
+        public override Type BehaviorType
+        {
+            get
+            {
+                return typeof(TokenEndpointBehavior);
+            }
+        }
+    }
+}

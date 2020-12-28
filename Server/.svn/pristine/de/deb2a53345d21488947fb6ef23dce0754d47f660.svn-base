@@ -1,0 +1,22 @@
+﻿using MySQLSrv.Helper;
+using System;
+using System.Collections.Generic;
+using System.Data;
+
+namespace MySQLSrv
+{
+    public class BlockInfoDA
+    {
+        public static Dictionary<string, int> List()
+        {
+            Dictionary<string, int> dic = new Dictionary<string, int>();
+            string sql = "SELECT block_type, specode FROM block_info";
+            DataTable dt = MySQLHelper.GetDataTable(sql, null);
+            foreach(DataRow dr in dt.Rows)
+            {
+                dic.Add(dr["specode"].ToString(), int.Parse(dr["block_type"].ToString()));
+            }
+            return dic;
+        }
+    }
+}

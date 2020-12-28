@@ -1,0 +1,293 @@
+﻿using Common;
+using NetMQ;
+using NetMQ.Sockets;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace JY
+{
+    public class JYService
+    {
+        private string server;
+        private int od_ticks, c_ticks;
+        private bool disposed = false;
+        private List<string> cmd_order = new List<string>();
+        private List<string> cmd_query = new List<string>();
+        private Dictionary<string, DateTime> abnormal_orders = new Dictionary<string, DateTime>();
+        private Dictionary<string, Tuple<string, string, string>> orders = new Dictionary<string, Tuple<string, string, string>>();
+        private HashSet<string> deals = new HashSet<string>();
+
+        public event EventHandler<OrderResult> Order_Done;
+        public event EventHandler<Capital> QueryCapital_Done;
+        public event EventHandler<OrderItem> NewOrder;
+        public event EventHandler<OrderItem> OrderChanged;
+        public event EventHandler<OrderItem> OrderCanceled;
+        public event EventHandler<DealItem> NewDeal;
+
+        public JYService(string ip, int port)
+        {
+            server = string.Format("tcp://{0}:{1}", ip, port);
+
+            Thread thread = new Thread(Request);
+            thread.IsBackground = true;
+            thread.Start();
+        }
+
+        public void Dispose()
+        {
+            disposed = true;
+        }
+
+        private void Request()
+        {
+            while (!disposed)
+            {
+                if (cmd_order.Count > 0)
+                {
+                    Command(cmd_order[0]);
+                    cmd_order.RemoveAt(0);
+                }
+                else if (cmd_query.Count > 0)
+                {
+                    Command(cmd_query[0]);
+                    cmd_query.RemoveAt(0);
+                }
+                else
+                {
+                    if (od_ticks >= 2)
+                    {
+                        QueryOrder();
+                        QueryDeal();
+                        od_ticks = 0;
+                    }
+                    else
+                        od_ticks++;
+                    if (c_ticks >= 60)
+                    {
+                        QueryCapital();
+                        c_ticks = 0;
+                    }
+                    else
+                        c_ticks++;
+
+                    AbnormalNotify();
+                    Thread.Sleep(1000);
+                }
+            }
+        }
+
+        private void AbnormalNotify()
+        {
+            if (abnormal_orders.Count == 0)
+                return;
+
+            Task.Run(() =>
+            {
+                var dic = abnormal_orders.Where(ao => ao.Value < DateTime.Now);
+                foreach (var itm in dic)
+                {
+                    Order_Done(null, new OrderResult(false, null, "", itm.Key));
+                    abnormal_orders.Remove(itm.Key);
+                }
+            });
+        }
+
+        private bool Send(string cmd, ref string response)
+        {
+            try
+            {
+                using (var client = new RequestSocket())
+                {
+                    client.Connect(server);
+                    client.TrySendFrame(new TimeSpan(0, 0, 3), Encoding.UTF8.GetBytes(cmd));
+                    bool result = client.TryReceiveFrameString(new TimeSpan(0, 0, 3), Encoding.UTF8, out response);
+                    client.Close();
+                    client.Dispose();
+                    return result;
+                }
+            }
+            catch (Exception ex)
+            {
+                NLog.Error("交易指令异常" + cmd, ex);
+            }
+            return false;
+        }
+
+        private void Command(string cmd)
+        {
+            string response = null;
+            bool received = Send(cmd, ref response);
+            Task.Run(() =>
+            {
+                if (received && !string.IsNullOrWhiteSpace(response))
+                {
+                    string response_cmd = response.Substring(0, 5);
+                    response = response.Substring(6).TrimEnd('|');
+                    switch (response_cmd)
+                    {
+                        case "90001":
+                            Order_Result(response);
+                            break;
+                        case "90003":
+                            QueryCapital_Result(response);
+                            break;
+                        case "90004":
+                            QueryOrder_Result(response);
+                            break;
+                        case "90005":
+                            QueryDeal_Result(response);
+                            break;
+                    }
+                }
+                else
+                {
+                    string request_cmd = cmd.Substring(0, 4);
+                    switch (request_cmd)
+                    {
+                        case "9001":
+                            string request_id = cmd.Substring(cmd.LastIndexOf(',') + 1);
+                            abnormal_orders.Add(request_id, DateTime.Now.AddSeconds(15));
+                            break;
+                    }
+                }
+            });
+        }
+
+        public void Order(Order model)
+        {
+            string cmd = string.Format("9001|{0},{1},{2},{3},{4}", model.code, model.type, model.count, model.price, model.request_id);
+            cmd_order.Add(cmd);
+        }
+
+        private void Order_Result(string response)
+        {
+            OrderResult result;
+            string[] datas = response.Split(',');
+
+            if (datas[0] == "0")
+                result = new OrderResult(false, null, datas[1], datas[2]);
+            else
+                result = new OrderResult(true, datas[1], null, datas[2]);
+            Order_Done(null, result);
+        }
+
+        public void Cancel(string order_no)
+        {
+            string cmd = string.Format("9002|{0}", order_no);
+            cmd_order.Add(cmd);
+        }
+
+        public void QueryCapital()
+        {
+            string cmd = "9003|";
+            cmd_query.Add(cmd);
+        }
+
+        private void QueryCapital_Result(string response)
+        {
+            QueryCapital_Done(null, new Capital(response));
+        }
+
+        public void QueryOrder()
+        {
+            string cmd = "9004|";
+            cmd_query.Add(cmd);
+        }
+
+        private void QueryOrder_Result(string response)
+        {
+            string[] datas = response.Split('\n');
+            if (datas.Length > 0)
+            {
+                foreach (string data in datas)
+                {
+                    if (string.IsNullOrWhiteSpace(data))
+                        continue;
+
+                    OrderItem order = new OrderItem(data);
+                    if (string.IsNullOrWhiteSpace(order.order_no))
+                        continue;
+
+                    if (!orders.ContainsKey(order.order_no))
+                    {
+                        orders.Add(order.order_no, new Tuple<string, string, string>(order.status, order.deal_count, order.cancel_count));
+                        if(order.request_id.Contains("错误"))
+                            Order_Done(null, new OrderResult(false, null, "", order.request_id));
+                        else
+                            NewOrder(null, order);
+                    }
+                    else
+                    {
+                        Tuple<string, string, string> order_old = orders[order.order_no];
+                        if (order_old.Item1 != order.status && order_old.Item3 != order.cancel_count)
+                        {
+                            OrderCanceled(null, order);
+                        }
+                        if (order_old.Item1 != order.status || order_old.Item2 != order.deal_count)
+                        {
+                            OrderChanged(null, order);
+                        }
+                        orders[order.order_no] = new Tuple<string, string, string>(order.status, order.deal_count, order.cancel_count);
+                    }
+                }
+            }
+        }
+
+        public void QueryDeal()
+        {
+            string cmd = "9005|";
+            cmd_query.Add(cmd);
+        }
+
+        private void QueryDeal_Result(string response)
+        {
+            string[] datas = response.Split('\n');
+            if (datas.Length > 0)
+            {
+                foreach (string data in datas)
+                {
+                    if (string.IsNullOrWhiteSpace(data))
+                        continue;
+
+                    DealItem deal = new DealItem(data);
+                    if (string.IsNullOrWhiteSpace(deal.deal_no))
+                        continue;
+
+                    if (!deals.Contains(deal.deal_no))
+                    {
+                        deals.Add(deal.deal_no);
+                        NewDeal(null, deal);
+                    }
+                }
+            }
+        }
+
+        public List<PositionItem> QueryPosition()
+        {
+            List<PositionItem> list = new List<PositionItem>();
+            string response = null;
+            bool received = Send("9006|", ref response);
+            if (received && !string.IsNullOrWhiteSpace(response))
+            {
+                response = response.Substring(6).TrimEnd('|');
+                string[] datas = response.Split('\n');
+                if (datas.Length > 0)
+                {
+
+                    foreach (string data in datas)
+                    {
+                        if (string.IsNullOrWhiteSpace(data))
+                            continue;
+
+                        list.Add(new PositionItem(data));
+                    }
+                }
+            }
+            return list;
+        }
+    }
+}
